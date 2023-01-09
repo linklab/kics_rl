@@ -1,6 +1,5 @@
-# https://www.gymlibrary.dev/environments/classic_control/cart_pole/
-# pip install gym[all]
-import
+# https://gymnasium.farama.org/environments/classic_control/cart_pole/
+import gymnasium as gym
 import time
 
 print("gym.__version__:", gym.__version__)
@@ -44,11 +43,12 @@ def env_info_details():
     observation, info = env.reset()
 
     action = 1  # RIGHT
-    next_observation, reward, done, truncated, info = env.step(action)
+    next_observation, reward, terminated, truncated, info = env.step(action)
 
-    # Prob = 1: deterministic policy, if we choose to go right, we'll go right
-    print("Obs.: {0}, Action: {1}({2}), Next Obs.: {3}, Reward: {4}, Done: {5}, Truncated: {6}, Info: {7}".format(
-        observation, action, ACTION_STRING_LIST[action], next_observation, reward, done, truncated, info
+    print("Obs.: {0}, Action: {1}({2}), Next Obs.: {3}, Reward: {4}, "
+          "Terminated: {5}, Truncated: {6}, Info: {7}".format(
+        observation, action, ACTION_STRING_LIST[action], next_observation, reward,
+        terminated, truncated, info
     ))
 
     observation = next_observation
@@ -56,14 +56,17 @@ def env_info_details():
     time.sleep(3)
 
     action = 1  # RIGHT
-    next_observation, reward, done, truncated, info = env.step(action)
+    next_observation, reward, terminated, truncated, info = env.step(action)
 
-    print("Obs.: {0}, Action: {1}({2}), Next Obs.: {3}, Reward: {4}, Done: {5}, Truncated: {6}, Info: {7}".format(
-        observation, action, ACTION_STRING_LIST[action], next_observation, reward, done, truncated, info
+    print("Obs.: {0}, Action: {1}({2}), Next Obs.: {3}, Reward: {4}, "
+          "Terminated: {5}, Truncated: {6}, Info: {7}".format(
+        observation, action, ACTION_STRING_LIST[action], next_observation, reward,
+        terminated, truncated, info
     ))
 
     print("*" * 80)
-    time.sleep(3)
+    time.sleep(2)
+
 
 if __name__ == "__main__":
     env_info_details()

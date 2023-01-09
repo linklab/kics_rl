@@ -1,3 +1,5 @@
+import os
+import sys
 import random
 from torch import nn
 import torch.nn.functional as F
@@ -5,21 +7,33 @@ import collections
 import torch
 import numpy as np
 
+print("TORCH VERSION:", torch.__version__)
+
+CURRENT_PATH = os.path.dirname(os.path.realpath(__file__))
+PROJECT_HOME = os.path.abspath(os.path.join(CURRENT_PATH, os.pardir))
+if PROJECT_HOME not in sys.path:
+    sys.path.append(PROJECT_HOME)
+
+MODEL_DIR = os.path.join(PROJECT_HOME, "03.DQN", "models")
+if not os.path.exists(MODEL_DIR):
+    os.mkdir(MODEL_DIR)
+
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 
 class QNet(nn.Module):
-    def __init__(self, n_features=4, n_actions=2, device=torch.device("cpu")):
+    def __init__(self, n_features=4, n_actions=2):
         super(QNet, self).__init__()
         self.n_features = n_features
         self.n_actions = n_actions
         self.fc1 = nn.Linear(n_features, 128)  # fully connected
         self.fc2 = nn.Linear(128, 128)
         self.fc3 = nn.Linear(128, n_actions)
-        self.version = 0
-        self.device = device
+        self.to(DEVICE)
 
     def forward(self, x):
         if isinstance(x, np.ndarray):
-            x = torch.tensor(x, dtype=torch.float32, device=self.device)
+            x = torch.tensor(x, dtype=torch.float32, device=DEVICE)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         x = self.fc3(x)
@@ -43,15 +57,8 @@ Transition = collections.namedtuple(
 
 
 class ReplayBuffer:
-    def __init__(self, capacity, device=None):
+    def __init__(self, capacity):
         self.buffer = collections.deque(maxlen=capacity)
-        if device is None:
-            self.device = torch.device("cpu")
-        else:
-            self.device = device
-
-    def __len__(self):
-        return len(self.buffer)
 
     def size(self):
         return len(self.buffer)
@@ -84,10 +91,10 @@ class ReplayBuffer:
         # actions.shape, rewards.shape, dones.shape: (32, 1) (32, 1) (32,)
 
         # Convert to tensor
-        observations = torch.tensor(observations, dtype=torch.float32, device=self.device)
-        actions = torch.tensor(actions, dtype=torch.int64, device=self.device)
-        next_observations = torch.tensor(next_observations, dtype=torch.float32, device=self.device)
-        rewards = torch.tensor(rewards, dtype=torch.float32, device=self.device)
-        dones = torch.tensor(dones, dtype=torch.bool, device=self.device)
+        observations = torch.tensor(observations, dtype=torch.float32, device=DEVICE)
+        actions = torch.tensor(actions, dtype=torch.int64, device=DEVICE)
+        next_observations = torch.tensor(next_observations, dtype=torch.float32, device=DEVICE)
+        rewards = torch.tensor(rewards, dtype=torch.float32, device=DEVICE)
+        dones = torch.tensor(dones, dtype=torch.bool, device=DEVICE)
 
         return observations, actions, next_observations, rewards, dones
