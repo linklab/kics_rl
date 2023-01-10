@@ -216,7 +216,7 @@ class REINFORCE:
             done = False
 
             while not done:
-                action = self.policy.get_action(observation, exploration=False)
+                action = self.policy.get_action(observation)
 
                 next_observation, reward, terminated, truncated, _ = self.validation_env.step(action * 2)
 
