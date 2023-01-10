@@ -47,7 +47,7 @@ class Policy(nn.Module):
         #         torch.mean(log_std_v).item(),
         #         torch.mean(std_v).item()
         # ))
-        return mu_v, 2.0
+        return mu_v, 3.0
 
     def get_action(self, x, exploration=True):
         if isinstance(x, np.ndarray):
