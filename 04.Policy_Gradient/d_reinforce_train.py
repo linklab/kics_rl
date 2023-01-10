@@ -169,10 +169,10 @@ class REINFORCE:
             # print(torch.mean(action_log_probs), torch.mean(returns_baseline))
             log_pi_returns = action_log_probs * returns_baseline
             log_pi_returns_sum = log_pi_returns.mean()
-            # print(
-            #     returns.shape, values.shape, returns_baseline.shape, action_log_probs.shape, log_pi_returns.shape,
-            #     log_pi_returns_sum.shape, "!!!"
-            # )
+            print(
+                returns.shape, values.shape, returns_baseline.shape, action_log_probs.shape, log_pi_returns.shape,
+                log_pi_returns_sum.shape, "!!!"
+            )
         else:
             #returns = (returns - torch.mean(returns)) / (torch.std(returns) + 1e-7)
             log_pi_returns = action_log_probs * returns
@@ -248,7 +248,7 @@ def main():
         "episode_reward_avg_solved": -200,            # 훈련 종료를 위한 테스트 에피소드 리워드의 Average
     }
 
-    use_wandb = True
+    use_wandb = False
     reinforce = REINFORCE(
         env=env, validation_env=validation_env, config=config, use_baseline=True, use_wandb=use_wandb
     )
