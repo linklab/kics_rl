@@ -8,8 +8,6 @@ import torch
 
 from c_qnet import QNet, DEVICE, MODEL_DIR
 
-ENV_NAME = "CartPole-v1"
-
 
 def play(env, q, num_episodes):
     for i in range(num_episodes):
@@ -37,11 +35,11 @@ def play(env, q, num_episodes):
         ))
 
 
-def main_q_play(num_episodes):
-    env = gym.make(ENV_NAME, render_mode="human")
+def main_play(num_episodes, env_name):
+    env = gym.make(env_name, render_mode="human")
 
     q = QNet(n_features=4, n_actions=2)
-    model_params = torch.load(os.path.join(MODEL_DIR, "dqn_CartPole-v1_latest.pth"))
+    model_params = torch.load(os.path.join(MODEL_DIR, "reinforce_{0}_latest.pth".format(env_name)))
     q.load_state_dict(model_params)
 
     play(env, q, num_episodes=num_episodes)
@@ -51,4 +49,6 @@ def main_q_play(num_episodes):
 
 if __name__ == "__main__":
     NUM_EPISODES = 3
-    main_q_play(num_episodes=NUM_EPISODES)
+    ENV_NAME = "CartPole-v1"
+
+    main_play(num_episodes=NUM_EPISODES, env_name=ENV_NAME)

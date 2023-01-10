@@ -121,7 +121,7 @@ class DQN:
                     "Total Elapsed Time: {}".format(total_training_time)
                 )
 
-            if self.training_time_steps > 0 and n_episode % self.validation_episode_interval == 0:
+            if n_episode % self.validation_episode_interval == 0:
                 validation_episode_reward_lst, validation_episode_reward_avg = self.validate()
 
                 print("[Validation Episode Reward: {0}] Average: {1:.3f}".format(
@@ -207,10 +207,7 @@ class DQN:
         filename = "dqn_{0}_{1:4.1f}_{2}.pth".format(
             self.env_name, validation_episode_reward_avg, self.current_time
         )
-        torch.save(
-            self.q.state_dict(),
-            os.path.join(MODEL_DIR, filename)
-        )
+        torch.save(self.q.state_dict(), os.path.join(MODEL_DIR, filename))
 
         copyfile(
             src=os.path.join(MODEL_DIR, filename),
@@ -264,7 +261,8 @@ def main():
         "episode_reward_avg_solved": 490,           # 훈련 종료를 위한 테스트 에피소드 리워드의 Average
     }
 
-    dqn = DQN(env=env, validation_env=validation_env, config=config, use_wandb=True)
+    use_wandb = True
+    dqn = DQN(env=env, validation_env=validation_env, config=config, use_wandb=use_wandb)
     dqn.train_loop()
 
 

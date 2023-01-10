@@ -12,6 +12,7 @@ import torch.nn.functional as F
 from torch.distributions import Normal
 import wandb
 from datetime import datetime
+from shutil import copyfile
 
 from c_policy import DEVICE, MODEL_DIR, Policy, Transition, Buffer, StateValueNet
 
@@ -57,7 +58,7 @@ class REINFORCE:
     def train_loop(self):
         total_train_start_time = time.time()
 
-        validation_episode_reward_avg = -2000
+        validation_episode_reward_avg = -10
 
         is_terminated = False
 
@@ -73,7 +74,7 @@ class REINFORCE:
 
                 action = self.policy.get_action(observation)
 
-                next_observation, reward, terminated, truncated, _ = self.env.step(action)
+                next_observation, reward, terminated, truncated, _ = self.env.step(action * 2)
 
                 episode_reward += reward
 
@@ -85,7 +86,7 @@ class REINFORCE:
                 done = terminated or truncated
 
             # TRAIN AFTER EPISODE DONE
-            objective = self.train()
+            policy_loss, avg_mu_v, avg_std_v, avg_action, avg_action_prob = self.train()
             self.buffer.clear()
 
             total_training_time = time.time() - total_train_start_time
@@ -95,12 +96,12 @@ class REINFORCE:
                 print(
                     "[Episode {:3,}, Steps {:6,}]".format(n_episode, self.time_steps),
                     "Episode Reward: {:>9.3f},".format(episode_reward),
-                    "Objective: {:>7.3f},".format(objective),
+                    "Policy Loss: {:>7.3f},".format(policy_loss),
                     "Training Steps: {:5,}".format(self.training_time_steps),
                     "Total Elapsed Time: {}".format(total_training_time)
                 )
 
-            if self.training_time_steps > 0 and n_episode % self.validation_episode_interval == 0:
+            if n_episode % self.validation_episode_interval == 0:
                 validation_episode_reward_lst, validation_episode_reward_avg = self.validate()
 
                 print("[Validation Episode Reward: {0}] Average: {1:.3f}".format(
@@ -118,7 +119,11 @@ class REINFORCE:
                 self.wandb.log({
                     "[VALIDATE] Mean Episode Reward": validation_episode_reward_avg,
                     "[TRAIN] Episode Reward": episode_reward,
-                    "Objective": objective if objective != 0.0 else 0.0,
+                    "Policy Loss": policy_loss,
+                    "avg_mu_v": avg_mu_v,
+                    "avg_std_v": avg_std_v,
+                    "avg_action": avg_action,
+                    "avg_action_prob": avg_action_prob,
                     "Episode": n_episode,
                     "Training Steps": self.training_time_steps,
                 })
@@ -148,7 +153,9 @@ class REINFORCE:
 
         mu_v, std_v = self.policy.forward(observations)
         dist = Normal(loc=mu_v, scale=std_v)
-        action_log_probs = dist.log_prob(value=actions).squeeze(dim=1)
+        action_log_probs = dist.log_prob(value=actions).squeeze(dim=1)  # natural log
+
+        #print(action_log_probs.mean(), torch.exp(action_log_probs).mean(), torch.normal(mu_v, std_v).mean())
 
         if self.use_baseline:
             values = self.state_value_net(observations).squeeze(dim=1)
@@ -159,27 +166,43 @@ class REINFORCE:
 
             returns_baseline = returns - values.detach()
             returns_baseline = (returns_baseline - torch.mean(returns_baseline)) / (torch.std(returns_baseline) + 1e-7)
+            # print(torch.mean(action_log_probs), torch.mean(returns_baseline))
             log_pi_returns = action_log_probs * returns_baseline
-            policy_objective = torch.sum(log_pi_returns)
-            #print(returns.shape, values.shape, returns_baseline.shape, action_log_probs.shape, log_pi_returns.shape, policy_objective.shape, "!!!")
+            log_pi_returns_sum = log_pi_returns.mean()
+            # print(
+            #     returns.shape, values.shape, returns_baseline.shape, action_log_probs.shape, log_pi_returns.shape,
+            #     log_pi_returns_sum.shape, "!!!"
+            # )
         else:
-            returns = (returns - torch.mean(returns)) / (torch.std(returns) + 1e-7)
+            #returns = (returns - torch.mean(returns)) / (torch.std(returns) + 1e-7)
             log_pi_returns = action_log_probs * returns
-            policy_objective = torch.sum(log_pi_returns)
-            # print(returns.shape, action_log_probs.shape, log_pi_returns.shape, policy_objective.shape, "!!!")
+            #print(torch.mean(action_log_probs).item(), torch.mean(returns).item())
+            log_pi_returns_sum = log_pi_returns.mean()
+            # print(returns.shape, action_log_probs.shape, log_pi_returns.shape, log_pi_returns_sum.shape, "!!!")
 
-        loss = -1.0 * policy_objective
+        policy_loss = -1.0 * log_pi_returns_sum
 
         self.optimizer.zero_grad()
-        loss.backward()
+        policy_loss.backward()
         self.optimizer.step()
 
-        return policy_objective
+        return (
+            policy_loss,
+            mu_v.mean().item(),
+            std_v,
+            actions.type(torch.float32).mean().item(),
+            action_log_probs.exp().mean().item()
+        )
 
     def model_save(self, validation_episode_reward_avg):
-        torch.save(
-            self.policy.state_dict(),
-            os.path.join(MODEL_DIR, "vpg_{0}_{1:4.1f}.pth".format(self.env_name, validation_episode_reward_avg))
+        filename = "reinforce_{0}_{1:4.1f}_{2}.pth".format(
+            self.env_name, validation_episode_reward_avg, self.current_time
+        )
+        torch.save(self.policy.state_dict(), os.path.join(MODEL_DIR, filename))
+
+        copyfile(
+            src=os.path.join(MODEL_DIR, filename),
+            dst=os.path.join(MODEL_DIR, "reinforce_{0}_latest.pth".format(self.env_name))
         )
 
     def validate(self):
@@ -193,9 +216,9 @@ class REINFORCE:
             done = False
 
             while not done:
-                action = self.policy.get_action(observation)
+                action = self.policy.get_action(observation, exploration=False)
 
-                next_observation, reward, terminated, truncated, _ = self.validation_env.step(action)
+                next_observation, reward, terminated, truncated, _ = self.validation_env.step(action * 2)
 
                 episode_reward += reward
                 observation = next_observation
@@ -208,6 +231,7 @@ class REINFORCE:
 
 def main():
     ENV_NAME = "Pendulum-v1"
+    # ENV_NAME = "MountainCarContinuous-v0"
 
     # env
     env = gym.make(ENV_NAME)
@@ -215,16 +239,19 @@ def main():
 
     config = {
         "env_name": ENV_NAME,                       # 환경의 이름
-        "max_num_episodes": 100_000,                  # 훈련을 위한 최대 에피소드 횟수
-        "learning_rate": 0.00005,                    # 학습율
+        "max_num_episodes": 100_000,                # 훈련을 위한 최대 에피소드 횟수
+        "learning_rate": 0.0003,                    # 학습율
         "gamma": 0.99,                              # 감가율
         "print_episode_interval": 20,               # Episode 통계 출력에 관한 에피소드 간격
         "validation_episode_interval": 100,         # 검증을 위한 episode 간격
         "validation_num_episodes": 3,               # 검증에 수행하는 에피소드 횟수
-        "episode_reward_avg_solved": -10,           # 훈련 종료를 위한 테스트 에피소드 리워드의 Average
+        "episode_reward_avg_solved": -200,            # 훈련 종료를 위한 테스트 에피소드 리워드의 Average
     }
 
-    reinforce = REINFORCE(env=env, validation_env=validation_env, config=config, use_baseline=True, use_wandb=True)
+    use_wandb = True
+    reinforce = REINFORCE(
+        env=env, validation_env=validation_env, config=config, use_baseline=True, use_wandb=use_wandb
+    )
     reinforce.train_loop()
 
 
