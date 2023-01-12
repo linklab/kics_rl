@@ -14,44 +14,43 @@ PROJECT_HOME = os.path.abspath(os.path.join(CURRENT_PATH, os.pardir))
 if PROJECT_HOME not in sys.path:
     sys.path.append(PROJECT_HOME)
 
-MODEL_DIR = os.path.join(PROJECT_HOME, "04.Policy_Gradient", "models")
+MODEL_DIR = os.path.join(PROJECT_HOME, "05.A2C", "models")
 if not os.path.exists(MODEL_DIR):
     os.mkdir(MODEL_DIR)
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-class Policy(nn.Module):
+class Actor(nn.Module):
     def __init__(self, n_features=3, n_actions=1):
-        super(Policy, self).__init__()
-        self.shared_fc1 = nn.Linear(n_features, 128)
-        self.shared_fc2 = nn.Linear(128, 128)
+        super(Actor, self).__init__()
+        self.fc1 = nn.Linear(n_features, 128)
+        self.fc2 = nn.Linear(128, 128)
         self.mu = nn.Linear(128, n_actions)
-        self.log_std = nn.Linear(128, n_actions)
+
+        # ln_e(x) = 1.0 --> x = e^1.0 = 2.71
+        log_std_param = nn.Parameter(torch.full((n_actions,), 1.0))
+        self.register_parameter("log_std", log_std_param)
         self.to(DEVICE)
 
     def forward(self, x):
         if isinstance(x, np.ndarray):
             x = torch.tensor(x, dtype=torch.float32, device=DEVICE)
-        x = F.relu(self.shared_fc1(x))
-        x = F.relu(self.shared_fc2(x))
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
         mu_v = F.tanh(self.mu(x))
-        log_std_v = self.log_std(x)
-        log_std_v = torch.clamp(log_std_v, min=-3.0, max=2.0)
-        std_v = log_std_v.exp()
-        # var_v = torch.clamp(var_v, 1e-4, 50)
+
+        std_v = self.log_std.exp()
+        std_v = torch.clamp(std_v, min=2.0, max=50)
         # print(
-        #     "count_positive_mu: {0:>3}, mean_mu: {1:5.2f}, mean_log_std: {2:5.2f}, mean_std: {3:5.2f}".format(
+        #     "count_positive_mu: {0:>3}, mean_mu: {1}, mean_var: {2}".format(
         #         torch.count_nonzero(mu_v > 0.0).item(),
-        #         torch.mean(mu_v).item(),
-        #         torch.mean(log_std_v).item(),
-        #         torch.mean(std_v).item()
+        #         mu_v.mean().item(),
+        #         std_v.mean().item(),
         # ))
-        return mu_v, 3.0
+        return mu_v, std_v
 
     def get_action(self, x, exploration=True):
-        if isinstance(x, np.ndarray):
-            x = torch.tensor(x, dtype=torch.float32, device=DEVICE)
         mu_v, std_v = self.forward(x)
 
         if exploration:
@@ -62,26 +61,15 @@ class Policy(nn.Module):
             action = mu_v.detach().numpy()
         return action
 
-    def get_action_with_action_prob(self, x):
-        mu_v, var_v = self.forward(x)
-        dist = Normal(loc=mu_v, scale=torch.sqrt(var_v))
-        action = dist.sample()
-        action = torch.clip(input=action, min=-2.0, max=2.0)
 
-        action_log_prob = dist.log_prob(action)
-        action = action.cpu().numpy()
-
-        return action, action_log_prob
-
-
-class StateValueNet(nn.Module):
+class Critic(nn.Module):
     '''
     Value network V(s_t) = E[G_t | s_t] to use as a baseline in the reinforce
     update. This a Neural Net with 1 hidden layer
     '''
 
     def __init__(self, n_features=3):
-        super(StateValueNet, self).__init__()
+        super(Critic, self).__init__()
         self.fc1 = nn.Linear(n_features, 128)
         self.fc2 = nn.Linear(128, 128)
         self.fc3 = nn.Linear(128, 1)

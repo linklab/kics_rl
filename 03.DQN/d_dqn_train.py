@@ -1,5 +1,4 @@
 # https://gymnasium.farama.org/environments/classic_control/cart_pole/
-# -*- coding: utf-8 -*-
 import time
 import os
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
@@ -43,7 +42,7 @@ class DQN:
         self.epsilon_end = config["epsilon_end"]
         self.epsilon_final_scheduled_percent = config["epsilon_final_scheduled_percent"]
         self.print_episode_interval = config["print_episode_interval"]
-        self.validation_episode_interval = config["validation_episode_interval"]
+        self.train_num_episodes = config["train_num_episodes"]
         self.validation_num_episodes = config["validation_num_episodes"]
         self.episode_reward_avg_solved = config["episode_reward_avg_solved"]
 
@@ -121,7 +120,7 @@ class DQN:
                     "Total Elapsed Time: {}".format(total_training_time)
                 )
 
-            if n_episode % self.validation_episode_interval == 0:
+            if n_episode % self.train_num_episodes == 0:
                 validation_episode_reward_lst, validation_episode_reward_avg = self.validate()
 
                 print("[Validation Episode Reward: {0}] Average: {1:.3f}".format(
@@ -152,6 +151,7 @@ class DQN:
         total_training_time = time.time() - total_train_start_time
         total_training_time = time.strftime('%H:%M:%S', time.gmtime(total_training_time))
         print("Total Training End : {}".format(total_training_time))
+        self.wandb.finish()
 
     def train(self):
         self.training_time_steps += 1
@@ -256,13 +256,15 @@ def main():
         "epsilon_end": 0.01,                        # Epsilon 최종 값
         "epsilon_final_scheduled_percent": 0.75,    # Epsilon 최종 값으로 스케줄되는 마지막 에피소드 비율
         "print_episode_interval": 10,               # Episode 통계 출력에 관한 에피소드 간격
-        "validation_episode_interval": 50,          # 검증을 위한 episode 간격
+        "train_num_episodes": 50,                   # 검증 사이 마다 각 훈련 episode 간격
         "validation_num_episodes": 3,               # 검증에 수행하는 에피소드 횟수
-        "episode_reward_avg_solved": 490,           # 훈련 종료를 위한 테스트 에피소드 리워드의 Average
+        "episode_reward_avg_solved": 490,           # 훈련 종료를 위한 검증 에피소드 리워드의 Average
     }
 
     use_wandb = True
-    dqn = DQN(env=env, validation_env=validation_env, config=config, use_wandb=use_wandb)
+    dqn = DQN(
+        env=env, validation_env=validation_env, config=config, use_wandb=use_wandb
+    )
     dqn.train_loop()
 
 

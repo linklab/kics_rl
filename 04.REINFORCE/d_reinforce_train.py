@@ -1,5 +1,4 @@
 # https://gymnasium.farama.org/environments/classic_control/cart_pole/
-# -*- coding: utf-8 -*-
 import time
 import os
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
@@ -14,7 +13,7 @@ import wandb
 from datetime import datetime
 from shutil import copyfile
 
-from c_policy import DEVICE, MODEL_DIR, Policy, Transition, Buffer, StateValueNet
+from c_policy_and_value import DEVICE, MODEL_DIR, Policy, Transition, Buffer, StateValueNet
 
 
 class REINFORCE:
@@ -30,7 +29,7 @@ class REINFORCE:
 
         if self.use_wandb:
             self.wandb = wandb.init(
-                project="DQN_{0}".format(self.env_name),
+                project="REINFORCE_{0}".format(self.env_name),
                 name=self.current_time,
                 config=config
             )
@@ -39,7 +38,7 @@ class REINFORCE:
         self.learning_rate = config["learning_rate"]
         self.gamma = config["gamma"]
         self.print_episode_interval = config["print_episode_interval"]
-        self.validation_episode_interval = config["validation_episode_interval"]
+        self.train_num_episodes = config["train_num_episodes"]
         self.validation_num_episodes = config["validation_num_episodes"]
         self.episode_reward_avg_solved = config["episode_reward_avg_solved"]
 
@@ -58,7 +57,7 @@ class REINFORCE:
     def train_loop(self):
         total_train_start_time = time.time()
 
-        validation_episode_reward_avg = -10
+        validation_episode_reward_avg = -1500
 
         is_terminated = False
 
@@ -101,7 +100,7 @@ class REINFORCE:
                     "Total Elapsed Time: {}".format(total_training_time)
                 )
 
-            if n_episode % self.validation_episode_interval == 0:
+            if n_episode % self.train_num_episodes == 0:
                 validation_episode_reward_lst, validation_episode_reward_avg = self.validate()
 
                 print("[Validation Episode Reward: {0}] Average: {1:.3f}".format(
@@ -115,7 +114,7 @@ class REINFORCE:
                     self.model_save(validation_episode_reward_avg)
                     is_terminated = True
 
-            if self.use_wandb and n_episode % 2 == 0:
+            if self.use_wandb:
                 self.wandb.log({
                     "[VALIDATE] Mean Episode Reward": validation_episode_reward_avg,
                     "[TRAIN] Episode Reward": episode_reward,
@@ -134,18 +133,18 @@ class REINFORCE:
         total_training_time = time.time() - total_train_start_time
         total_training_time = time.strftime('%H:%M:%S', time.gmtime(total_training_time))
         print("Total Training End : {}".format(total_training_time))
+        self.wandb.finish()
 
     def train(self):
         self.training_time_steps += 1
 
         observations, actions, next_observations, rewards, dones = self.buffer.get()
 
-        # rewards = torch.flip(rewards, dims=[0])
-        rewards = rewards.squeeze(dim=1).cpu().numpy()[::-1]
+        reversed_rewards = rewards.squeeze(dim=-1).cpu().numpy()[::-1]
 
         G = 0.0
         return_lst = []
-        for reward in rewards:
+        for reward in reversed_rewards:
             G = reward + self.gamma * G
             return_lst.append(G)
 
@@ -153,32 +152,34 @@ class REINFORCE:
 
         mu_v, std_v = self.policy.forward(observations)
         dist = Normal(loc=mu_v, scale=std_v)
-        action_log_probs = dist.log_prob(value=actions).squeeze(dim=1)  # natural log
+        action_log_probs = dist.log_prob(value=actions).squeeze(dim=-1)  # natural log
 
         #print(action_log_probs.mean(), torch.exp(action_log_probs).mean(), torch.normal(mu_v, std_v).mean())
 
         if self.use_baseline:
-            values = self.state_value_net(observations).squeeze(dim=1)
+            values = self.state_value_net(observations).squeeze(dim=-1)
             v_loss = F.mse_loss(values, returns)
             self.value_optimizer.zero_grad()
             v_loss.backward()
             self.value_optimizer.step()
 
             returns_baseline = returns - values.detach()
+            # normalization
             returns_baseline = (returns_baseline - torch.mean(returns_baseline)) / (torch.std(returns_baseline) + 1e-7)
-            # print(torch.mean(action_log_probs), torch.mean(returns_baseline))
             log_pi_returns = action_log_probs * returns_baseline
-            log_pi_returns_sum = log_pi_returns.mean()
+            log_pi_returns_sum = log_pi_returns.sum()
             # print(
             #     returns.shape, values.shape, returns_baseline.shape, action_log_probs.shape, log_pi_returns.shape,
             #     log_pi_returns_sum.shape, "!!!"
             # )
         else:
-            #returns = (returns - torch.mean(returns)) / (torch.std(returns) + 1e-7)
+            # normalization
+            returns = (returns - torch.mean(returns)) / (torch.std(returns) + 1e-7)
             log_pi_returns = action_log_probs * returns
-            #print(torch.mean(action_log_probs).item(), torch.mean(returns).item())
-            log_pi_returns_sum = log_pi_returns.mean()
-            # print(returns.shape, action_log_probs.shape, log_pi_returns.shape, log_pi_returns_sum.shape, "!!!")
+            log_pi_returns_sum = log_pi_returns.sum()
+            # print(
+            # returns.shape, action_log_probs.shape, log_pi_returns.shape, log_pi_returns_sum.shape, "!!!"
+            # )
 
         policy_loss = -1.0 * log_pi_returns_sum
 
@@ -187,9 +188,9 @@ class REINFORCE:
         self.optimizer.step()
 
         return (
-            policy_loss,
+            policy_loss.item(),
             mu_v.mean().item(),
-            std_v,
+            std_v.mean().item(),
             actions.type(torch.float32).mean().item(),
             action_log_probs.exp().mean().item()
         )
@@ -216,7 +217,8 @@ class REINFORCE:
             done = False
 
             while not done:
-                action = self.policy.get_action(observation)
+                # action = self.policy.get_action(observation)
+                action = self.policy.get_action(observation, exploration=False)
 
                 next_observation, reward, terminated, truncated, _ = self.validation_env.step(action * 2)
 
@@ -231,7 +233,6 @@ class REINFORCE:
 
 def main():
     ENV_NAME = "Pendulum-v1"
-    # ENV_NAME = "MountainCarContinuous-v0"
 
     # env
     env = gym.make(ENV_NAME)
@@ -243,7 +244,7 @@ def main():
         "learning_rate": 0.0003,                    # 학습율
         "gamma": 0.99,                              # 감가율
         "print_episode_interval": 20,               # Episode 통계 출력에 관한 에피소드 간격
-        "validation_episode_interval": 100,         # 검증을 위한 episode 간격
+        "train_num_episodes": 100,                  # 검증 사이 마다 각 훈련 episode 간격
         "validation_num_episodes": 3,               # 검증에 수행하는 에피소드 횟수
         "episode_reward_avg_solved": -200,          # 훈련 종료를 위한 테스트 에피소드 리워드의 Average
     }

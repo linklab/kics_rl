@@ -1,12 +1,11 @@
 # https://gymnasium.farama.org/environments/classic_control/cart_pole/
-# -*- coding: utf-8 -*-
 import os
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
 import gymnasium as gym
 import torch
 
-from c_policy import MODEL_DIR, Policy
+from c_policy_and_value import MODEL_DIR, Policy
 
 
 def play(env, policy, num_episodes):
@@ -22,7 +21,8 @@ def play(env, policy, num_episodes):
 
         while not done:
             episode_steps += 1
-            action = policy.get_action(observation)
+            # action = policy.get_action(observation)
+            action = policy.get_action(observation, exploration=False)
 
             next_observation, reward, terminated, truncated, _ = env.step(action * 2)
 
