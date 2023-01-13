@@ -58,6 +58,7 @@ class A2C:
         total_train_start_time = time.time()
 
         validation_episode_reward_avg = -1500
+        policy_loss = avg_mu_v = avg_std_v = avg_action = avg_action_prob = 0.0
 
         is_terminated = False
 
