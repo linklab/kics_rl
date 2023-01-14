@@ -2,10 +2,8 @@
 import time
 import os
 from copy import deepcopy
-
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
-import gymnasium as gym
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -14,7 +12,7 @@ import wandb
 from datetime import datetime
 from shutil import copyfile
 
-from a_task_allocation_env import TaskAllocationEnv
+from a_task_allocation_env import TaskAllocationEnv, ENV_NAME
 from b_qnet import QNet, ReplayBuffer, Transition, MODEL_DIR
 
 
@@ -24,7 +22,7 @@ class DQN:
         self.validation_env = validation_env
         self.use_wandb = use_wandb
 
-        self.env_name = "TaskAllocation"
+        self.env_name = ENV_NAME
 
         self.current_time = datetime.now().astimezone().strftime('%Y-%m-%d_%H-%M-%S')
 
@@ -115,12 +113,12 @@ class DQN:
             if n_episode % self.print_episode_interval == 0:
                 print(
                     "[Episode {:3,}, Time Steps {:6,}]".format(n_episode, self.time_steps),
-                    "Episode Reward: {:>5},".format(episode_reward),
+                    "Episode Reward: {:>5.2f},".format(episode_reward),
                     "Replay buffer: {:>6,},".format(self.replay_buffer.size()),
                     "Loss: {:6.3f},".format(loss),
                     "Epsilon: {:4.2f},".format(epsilon),
-                    "Training Steps: {:5,},".format(self.training_time_steps),
-                    "Total Elapsed Time: {}".format(total_training_time)
+                    "Training Steps: {:>5,},".format(self.training_time_steps),
+                    "Elapsed Time: {}".format(total_training_time)
                 )
 
             if n_episode % self.train_num_episodes == 0:
@@ -161,14 +159,8 @@ class DQN:
 
         batch = self.replay_buffer.sample(self.batch_size)
 
-        # observations.shape: torch.Size([32, 4]),
-        # actions.shape: torch.Size([32, 1]),
-        # next_observations.shape: torch.Size([32, 4]),
-        # rewards.shape: torch.Size([32, 1]),
-        # dones.shape: torch.Size([32])
         observations, actions, next_observations, rewards, dones = batch
 
-        # state_action_values.shape: torch.Size([32, 1])
         q_out = self.q(observations)
         q_values = q_out.gather(dim=1, index=actions)
 
@@ -183,18 +175,6 @@ class DQN:
 
         # loss is just scalar torch value
         loss = F.mse_loss(targets.detach(), q_values)
-
-        # print("observations.shape: {0}, actions.shape: {1}, "
-        #       "next_observations.shape: {2}, rewards.shape: {3}, dones.shape: {4}".format(
-        #     observations.shape, actions.shape,
-        #     next_observations.shape, rewards.shape, dones.shape
-        # ))
-        # print("state_action_values.shape: {0}".format(state_action_values.shape))
-        # print("next_state_values.shape: {0}".format(next_state_values.shape))
-        # print("target_state_action_values.shape: {0}".format(
-        #     target_state_action_values.shape
-        # ))
-        # print("loss.shape: {0}".format(loss.shape))
 
         self.optimizer.zero_grad()
         loss.backward()
@@ -242,24 +222,11 @@ class DQN:
 
 
 def main():
-    NUM_TASKS = 10
-    INITIAL_RESOURCES_CAPACITY = [70, 80]  # task resource limits
-    LOW_DEMAND_RESOURCE_AT_TASK = [1, 1]
-    HIGH_DEMAND_RESOURCE_AT_TASK = [20, 20]
-    INITIAL_TASK_DISTRIBUTION_FIXED = True
-
-    env = TaskAllocationEnv(
-        INITIAL_TASK_DISTRIBUTION_FIXED,
-        NUM_TASKS,
-        LOW_DEMAND_RESOURCE_AT_TASK,
-        HIGH_DEMAND_RESOURCE_AT_TASK,
-        INITIAL_RESOURCES_CAPACITY
-    )
-
+    env = TaskAllocationEnv()
     validation_env = deepcopy(env)
 
     config = {
-        "max_num_episodes": 2_000,                  # 훈련을 위한 최대 에피소드 횟수
+        "max_num_episodes": 100_000,                  # 훈련을 위한 최대 에피소드 횟수
         "batch_size": 64,                           # 훈련시 배치에서 한번에 가져오는 랜덤 배치 사이즈
         "learning_rate": 0.0001,                    # 학습율
         "gamma": 0.99,                              # 감가율
@@ -270,8 +237,8 @@ def main():
         "epsilon_final_scheduled_percent": 0.75,    # Epsilon 최종 값으로 스케줄되는 마지막 에피소드 비율
         "print_episode_interval": 10,               # Episode 통계 출력에 관한 에피소드 간격
         "train_num_episodes": 50,                   # 검증 사이 마다 각 훈련 episode 간격
-        "validation_num_episodes": 3,               # 검증에 수행하는 에피소드 횟수
-        "episode_reward_avg_solved": 1000,           # 훈련 종료를 위한 검증 에피소드 리워드의 Average
+        "validation_num_episodes": 10,               # 검증에 수행하는 에피소드 횟수
+        "episode_reward_avg_solved": 1.99,           # 훈련 종료를 위한 검증 에피소드 리워드의 Average
     }
 
     use_wandb = True

@@ -97,7 +97,7 @@ class REINFORCE:
                     "Episode Reward: {:>9.3f},".format(episode_reward),
                     "Policy Loss: {:>7.3f},".format(policy_loss),
                     "Training Steps: {:5,}".format(self.training_time_steps),
-                    "Total Elapsed Time: {}".format(total_training_time)
+                    "Elapsed Time: {}".format(total_training_time)
                 )
 
             if n_episode % self.train_num_episodes == 0:

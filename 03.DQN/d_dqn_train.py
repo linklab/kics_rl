@@ -117,7 +117,7 @@ class DQN:
                     "Loss: {:6.3f},".format(loss),
                     "Epsilon: {:4.2f},".format(epsilon),
                     "Training Steps: {:5,},".format(self.training_time_steps),
-                    "Total Elapsed Time: {}".format(total_training_time)
+                    "Elapsed Time: {}".format(total_training_time)
                 )
 
             if n_episode % self.train_num_episodes == 0:

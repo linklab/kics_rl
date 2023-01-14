@@ -97,8 +97,8 @@ class A2C:
                     "[Episode {:3,}, Steps {:6,}]".format(n_episode, self.time_steps),
                     "Episode Reward: {:>9.3f},".format(episode_reward),
                     "Policy Loss: {:>7.3f},".format(policy_loss),
-                    "Training Steps: {:5,}".format(self.training_time_steps),
-                    "Total Elapsed Time: {}".format(total_training_time)
+                    "Training Steps: {:5,}, ".format(self.training_time_steps),
+                    "Elapsed Time: {}".format(total_training_time)
                 )
 
             if n_episode % self.train_num_episodes == 0:

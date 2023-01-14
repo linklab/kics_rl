@@ -2,10 +2,9 @@
 import os
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
-import gymnasium as gym
 import torch
-
-from c_qnet import QNet, DEVICE, MODEL_DIR
+from a_task_allocation_env import TaskAllocationEnv, ENV_NAME
+from b_qnet import QNet, MODEL_DIR
 
 
 def play(env, q, num_episodes):
@@ -23,21 +22,21 @@ def play(env, q, num_episodes):
             episode_steps += 1
             action = q.get_action(observation, epsilon=0.0)
 
-            next_observation, reward, terminated, truncated, _ = env.step(action)
+            next_observation, reward, terminated, truncated, info = env.step(action)
 
             episode_reward += reward
             observation = next_observation
             done = terminated or truncated
 
-        print("[EPISODE: {0}] EPISODE_STEPS: {1:3d}, EPISODE REWARD: {2:4.1f}".format(
-            i, episode_steps, episode_reward
+        print("[EPISODE: {0}] EPISODE_STEPS: {1:3d}, EPISODE REWARD: {2:4.1f}, INFO:{3}".format(
+            i, episode_steps, episode_reward, info
         ))
 
 
 def main_play(num_episodes, env_name):
-    env = gym.make(env_name, render_mode="human")
+    env = TaskAllocationEnv()
 
-    q = QNet(n_features=4, n_actions=2)
+    q = QNet(n_features=(env.NUM_TASKS + 1) * 3, n_actions=env.NUM_TASKS)
     model_params = torch.load(os.path.join(MODEL_DIR, "dqn_{0}_latest.pth".format(env_name)))
     q.load_state_dict(model_params)
 
@@ -48,6 +47,5 @@ def main_play(num_episodes, env_name):
 
 if __name__ == "__main__":
     NUM_EPISODES = 3
-    ENV_NAME = "CartPole-v1"
 
     main_play(num_episodes=NUM_EPISODES, env_name=ENV_NAME)
