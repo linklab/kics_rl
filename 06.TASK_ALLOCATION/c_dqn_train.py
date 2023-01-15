@@ -38,7 +38,7 @@ class EarlyStopModelSaver:
             validation_episode_reward_avg >= self.max_validation_episode_reward_avg
         ]
         if all(conditions):
-            self.model_save(validation_episode_reward_avg, env, env_name, current_time, q)
+            self.model_save(validation_episode_reward_avg, env, env_name, n_episode, current_time, q)
             self.max_validation_episode_reward_avg = validation_episode_reward_avg
             self.counter = 0
         else:
@@ -52,9 +52,9 @@ class EarlyStopModelSaver:
                 print("[EARLY STOP] COUNTER: {0}".format(self.counter))
         return early_stop
 
-    def model_save(self, validation_episode_reward_avg, env, env_name, current_time, q):
-        filename = "dqn_{0}_{1}_{2:5.3f}_{3}.pth".format(
-            env.NUM_TASKS, env_name, validation_episode_reward_avg, current_time
+    def model_save(self, validation_episode_reward_avg, env, env_name, n_episode, current_time, q):
+        filename = "dqn_{0}_{1}_{2:5.3f}_{3}_{4}.pth".format(
+            env.NUM_TASKS, env_name, validation_episode_reward_avg, n_episode, current_time
         )
         torch.save(q.state_dict(), os.path.join(MODEL_DIR, filename))
         print("[EARLY STOP_MODEL_SAVER] MODEL_SAVED - {0}".format(filename))
@@ -263,7 +263,7 @@ def main():
     validation_env = deepcopy(env)
 
     config = {
-        "max_num_episodes": 150_000,                  # 훈련을 위한 최대 에피소드 횟수
+        "max_num_episodes": 300_000,                  # 훈련을 위한 최대 에피소드 횟수
         "batch_size": 64,                           # 훈련시 배치에서 한번에 가져오는 랜덤 배치 사이즈
         "learning_rate": 0.0001,                    # 학습율
         "gamma": 0.99,                              # 감가율
