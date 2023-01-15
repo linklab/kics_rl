@@ -106,7 +106,7 @@ class QTableAgent:
         return episode_reward_list, episode_td_error_list, is_train_success
 
     def validate(self):
-        episode_reward_list = []
+        episode_reward_lst = np.zeros(shape=(self.validation_num_episodes,), dtype=float)
 
         test_env = gym.make('FrozenLake-v1', desc=DESC, map_name=MAP_NAME, is_slippery=IS_SLIPPERY)
 
@@ -124,9 +124,9 @@ class QTableAgent:
                 observation = next_observation
                 episode_step += 1
 
-            episode_reward_list.append(episode_reward)
+            episode_reward_lst[episode] = episode_reward
 
-        return episode_reward_list, np.mean(episode_reward_list)
+        return episode_reward_lst, np.mean(episode_reward_lst)
 
 
 def main():

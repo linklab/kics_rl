@@ -16,6 +16,55 @@ from a_task_allocation_env import TaskAllocationEnv, ENV_NAME
 from b_qnet import QNet, ReplayBuffer, Transition, MODEL_DIR
 
 
+class EarlyStopModelSaver:
+    """주어진 patience 이후로 episode_reward가 개선되지 않으면 학습을 조기 중지"""
+    def __init__(self, patience=30):
+        """
+        Args:
+            patience (int): episode_reward가 개선될 때까지 기다리는 기간
+        """
+        self.patience = patience
+        self.counter = 0
+        self.max_validation_episode_reward_avg = -np.inf
+
+    def check(
+            self, validation_episode_reward_avg, env, env_name, current_time,
+            n_episode, time_steps, training_time_steps, q
+    ):
+        early_stop = False
+
+        conditions = [
+            validation_episode_reward_avg > 0.0,
+            validation_episode_reward_avg >= self.max_validation_episode_reward_avg
+        ]
+        if all(conditions):
+            self.model_save(validation_episode_reward_avg, env, env_name, current_time, q)
+            self.max_validation_episode_reward_avg = validation_episode_reward_avg
+            self.counter = 0
+        else:
+            self.counter += 1
+            if self.counter >= self.patience:
+                early_stop = True
+                print("[EARLY STOP] Solved in {0:,} episode, {1:,} steps ({2:,} training steps)!".format(
+                    n_episode, time_steps, training_time_steps
+                ))
+            else:
+                print("[EARLY STOP] COUNTER: {0}".format(self.counter))
+        return early_stop
+
+    def model_save(self, validation_episode_reward_avg, env, env_name, current_time, q):
+        filename = "dqn_{0}_{1}_{2:5.3f}_{3}.pth".format(
+            env.NUM_TASKS, env_name, validation_episode_reward_avg, current_time
+        )
+        torch.save(q.state_dict(), os.path.join(MODEL_DIR, filename))
+        print("[EARLY STOP_MODEL_SAVER] MODEL_SAVED - {0}".format(filename))
+
+        copyfile(
+            src=os.path.join(MODEL_DIR, filename),
+            dst=os.path.join(MODEL_DIR, "dqn_{0}_{1}_latest.pth".format(env.NUM_TASKS, env_name))
+        )
+
+
 class DQN:
     def __init__(self, env, validation_env, config, use_wandb):
         self.env = env
@@ -45,7 +94,6 @@ class DQN:
         self.print_episode_interval = config["print_episode_interval"]
         self.train_num_episodes = config["train_num_episodes"]
         self.validation_num_episodes = config["validation_num_episodes"]
-        self.episode_reward_avg_solved = config["episode_reward_avg_solved"]
 
         self.epsilon_scheduled_last_episode = self.max_num_episodes * self.epsilon_final_scheduled_percent
 
@@ -62,6 +110,8 @@ class DQN:
         self.time_steps = 0
         self.training_time_steps = 0
 
+        self.early_stop_model_saver = EarlyStopModelSaver(patience=config["early_stop_patience"])
+
     def epsilon_scheduled(self, current_episode):
         fraction = min(current_episode / self.epsilon_scheduled_last_episode, 1.0)
 
@@ -76,7 +126,7 @@ class DQN:
 
         total_train_start_time = time.time()
 
-        validation_episode_reward_avg = 0.0
+        validation_episode_reward_avg = -1.0
 
         is_terminated = False
 
@@ -128,12 +178,10 @@ class DQN:
                     validation_episode_reward_lst, validation_episode_reward_avg
                 ))
 
-                if validation_episode_reward_avg > self.episode_reward_avg_solved:
-                    print("Solved in {0:,} steps ({1:,} training steps)!".format(
-                        self.time_steps, self.training_time_steps
-                    ))
-                    self.model_save(validation_episode_reward_avg)
-                    is_terminated = True
+                is_terminated = self.early_stop_model_saver.check(
+                    validation_episode_reward_avg, self.env, ENV_NAME, self.current_time,
+                    n_episode, self.time_steps, self.training_time_steps, self.q
+                )
 
             if self.use_wandb:
                 self.wandb.log({
@@ -186,19 +234,8 @@ class DQN:
 
         return loss.item()
 
-    def model_save(self, validation_episode_reward_avg):
-        filename = "dqn_{0}_{1:4.1f}_{2}.pth".format(
-            self.env_name, validation_episode_reward_avg, self.current_time
-        )
-        torch.save(self.q.state_dict(), os.path.join(MODEL_DIR, filename))
-
-        copyfile(
-            src=os.path.join(MODEL_DIR, filename),
-            dst=os.path.join(MODEL_DIR, "dqn_{0}_latest.pth".format(self.env_name))
-        )
-
     def validate(self):
-        episode_reward_lst = []
+        episode_reward_lst = np.zeros(shape=(self.validation_num_episodes,), dtype=float)
 
         for i in range(self.validation_num_episodes):
             episode_reward = 0
@@ -216,7 +253,7 @@ class DQN:
                 observation = next_observation
                 done = terminated or truncated
 
-            episode_reward_lst.append(episode_reward)
+            episode_reward_lst[i] = episode_reward
 
         return episode_reward_lst, np.average(episode_reward_lst)
 
@@ -226,7 +263,7 @@ def main():
     validation_env = deepcopy(env)
 
     config = {
-        "max_num_episodes": 100_000,                  # 훈련을 위한 최대 에피소드 횟수
+        "max_num_episodes": 150_000,                  # 훈련을 위한 최대 에피소드 횟수
         "batch_size": 64,                           # 훈련시 배치에서 한번에 가져오는 랜덤 배치 사이즈
         "learning_rate": 0.0001,                    # 학습율
         "gamma": 0.99,                              # 감가율
@@ -237,8 +274,8 @@ def main():
         "epsilon_final_scheduled_percent": 0.75,    # Epsilon 최종 값으로 스케줄되는 마지막 에피소드 비율
         "print_episode_interval": 10,               # Episode 통계 출력에 관한 에피소드 간격
         "train_num_episodes": 50,                   # 검증 사이 마다 각 훈련 episode 간격
-        "validation_num_episodes": 10,               # 검증에 수행하는 에피소드 횟수
-        "episode_reward_avg_solved": 1.99,           # 훈련 종료를 위한 검증 에피소드 리워드의 Average
+        "validation_num_episodes": 10,              # 검증에 수행하는 에피소드 횟수
+        "early_stop_patience": env.NUM_TASKS * 50,  # episode_reward가 개선될 때까지 기다리는 기간
     }
 
     use_wandb = True

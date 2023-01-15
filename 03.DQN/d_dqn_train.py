@@ -215,7 +215,7 @@ class DQN:
         )
 
     def validate(self):
-        episode_reward_lst = []
+        episode_reward_lst = np.zeros(shape=(self.validation_num_episodes,), dtype=float)
 
         for i in range(self.validation_num_episodes):
             episode_reward = 0
@@ -233,7 +233,7 @@ class DQN:
                 observation = next_observation
                 done = terminated or truncated
 
-            episode_reward_lst.append(episode_reward)
+            episode_reward_lst[i] = episode_reward
 
         return episode_reward_lst, np.average(episode_reward_lst)
 

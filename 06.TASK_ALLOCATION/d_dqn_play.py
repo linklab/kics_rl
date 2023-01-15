@@ -28,7 +28,7 @@ def play(env, q, num_episodes):
             observation = next_observation
             done = terminated or truncated
 
-        print("[EPISODE: {0}] EPISODE_STEPS: {1:3d}, EPISODE REWARD: {2:4.1f}, INFO:{3}".format(
+        print("[EPISODE: {0}] EPISODE_STEPS: {1:3d}, EPISODE REWARD: {2:5.3f}, INFO:{3}".format(
             i, episode_steps, episode_reward, info
         ))
 
@@ -37,7 +37,7 @@ def main_play(num_episodes, env_name):
     env = TaskAllocationEnv()
 
     q = QNet(n_features=(env.NUM_TASKS + 1) * 3, n_actions=env.NUM_TASKS)
-    model_params = torch.load(os.path.join(MODEL_DIR, "dqn_{0}_latest.pth".format(env_name)))
+    model_params = torch.load(os.path.join(MODEL_DIR, "dqn_{0}_{1}_latest.pth".format(env.NUM_TASKS, env_name)))
     q.load_state_dict(model_params)
 
     play(env, q, num_episodes=num_episodes)
@@ -46,6 +46,6 @@ def main_play(num_episodes, env_name):
 
 
 if __name__ == "__main__":
-    NUM_EPISODES = 3
+    NUM_EPISODES = 10
 
     main_play(num_episodes=NUM_EPISODES, env_name=ENV_NAME)
