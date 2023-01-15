@@ -1,5 +1,8 @@
 # https://gymnasium.farama.org/environments/classic_control/cart_pole/
 import os
+
+import numpy as np
+
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
 import torch
@@ -8,6 +11,8 @@ from b_qnet import QNet, MODEL_DIR
 
 
 def play(env, q, num_episodes):
+    episode_reward_lst = np.zeros(shape=(num_episodes,), dtype=float)
+
     for i in range(num_episodes):
         episode_reward = 0  # cumulative_reward
 
@@ -28,9 +33,13 @@ def play(env, q, num_episodes):
             observation = next_observation
             done = terminated or truncated
 
+        episode_reward_lst[i] = episode_reward
+
         print("[EPISODE: {0}] EPISODE_STEPS: {1:3d}, EPISODE REWARD: {2:5.3f}, INFO:{3}".format(
             i, episode_steps, episode_reward, info
         ))
+
+    return episode_reward_lst, np.average(episode_reward_lst)
 
 
 def main_play(num_episodes, env_name):
@@ -40,7 +49,8 @@ def main_play(num_episodes, env_name):
     model_params = torch.load(os.path.join(MODEL_DIR, "dqn_{0}_{1}_latest.pth".format(env.NUM_TASKS, env_name)))
     q.load_state_dict(model_params)
 
-    play(env, q, num_episodes=num_episodes)
+    episode_reward_lst, episode_reward_avg = play(env, q, num_episodes=num_episodes)
+    print("[Play Episode Reward: {0}] Average: {1:.3f}".format(episode_reward_lst, episode_reward_avg))
 
     env.close()
 
