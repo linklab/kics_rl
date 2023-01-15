@@ -5,6 +5,7 @@ from copy import deepcopy
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
 import numpy as np
+np.set_printoptions(edgeitems=3, linewidth=100000, formatter=dict(float=lambda x: "%5.2f" % x))
 import torch
 import torch.nn.functional as F
 import torch.optim as optim
@@ -273,8 +274,8 @@ def main():
         "epsilon_end": 0.01,                        # Epsilon 최종 값
         "epsilon_final_scheduled_percent": 0.75,    # Epsilon 최종 값으로 스케줄되는 마지막 에피소드 비율
         "print_episode_interval": 10,               # Episode 통계 출력에 관한 에피소드 간격
-        "train_num_episodes": 50,                   # 검증 사이 마다 각 훈련 episode 간격
-        "validation_num_episodes": 10,              # 검증에 수행하는 에피소드 횟수
+        "train_num_episodes": 200,                   # 검증 사이 마다 각 훈련 episode 간격
+        "validation_num_episodes": 15,              # 검증에 수행하는 에피소드 횟수
         "early_stop_patience": env.NUM_TASKS * 50,  # episode_reward가 개선될 때까지 기다리는 기간
     }
 

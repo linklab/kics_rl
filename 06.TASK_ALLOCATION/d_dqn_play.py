@@ -1,9 +1,9 @@
 # https://gymnasium.farama.org/environments/classic_control/cart_pole/
 import os
+os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
 import numpy as np
-
-os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
+np.set_printoptions(edgeitems=3, linewidth=100000, formatter=dict(float=lambda x: "%5.2f" % x))
 
 import torch
 from a_task_allocation_env import TaskAllocationEnv, ENV_NAME
