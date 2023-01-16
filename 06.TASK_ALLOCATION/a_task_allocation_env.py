@@ -122,10 +122,7 @@ class TaskAllocationEnv(gym.Env):
         return state
 
     def get_observation_from_internal_state(self):
-        print(self.internal_state)
         observation = copy.deepcopy(self.internal_state.flatten()) / self.TOTAL_RESOURCE_CAPACITY
-        print(observation)
-
         return observation
 
     def reset(self, **kwargs):
