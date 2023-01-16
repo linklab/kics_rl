@@ -37,11 +37,11 @@ class TaskAllocationEnv(gym.Env):
 
         self.internal_state = None
         self.actions_selected = None
-        self.resource_of_all_tasks_selected = None
+        self.total_allocated = None
 
-        self.cpu_of_all_tasks_selected = None
-        self.ram_of_all_tasks_selected = None
-        self.resource_of_all_tasks_selected = None
+        self.cpu_allocated = None
+        self.ram_allocated = None
+        self.total_allocated = None
 
         self.resources_step = None
 
@@ -122,15 +122,18 @@ class TaskAllocationEnv(gym.Env):
         return state
 
     def get_observation_from_internal_state(self):
+        print(self.internal_state)
         observation = copy.deepcopy(self.internal_state.flatten()) / self.TOTAL_RESOURCE_CAPACITY
+        print(observation)
+
         return observation
 
     def reset(self, **kwargs):
         self.internal_state = self.get_initial_internal_state()
         self.actions_selected = []
-        self.resource_of_all_tasks_selected = 0
-        self.cpu_of_all_tasks_selected = 0
-        self.ram_of_all_tasks_selected = 0
+        self.total_allocated = 0
+        self.cpu_allocated = 0
+        self.ram_allocated = 0
 
         observation = self.get_observation_from_internal_state()
         info = None
@@ -145,9 +148,6 @@ class TaskAllocationEnv(gym.Env):
         ram_step = self.internal_state[action_idx][2]
 
         self.resources_step = cpu_step + ram_step
-        
-        cpu_of_all_tasks_selected_with_this_step = self.cpu_of_all_tasks_selected + cpu_step
-        ram_of_all_tasks_selected_with_this_step = self.ram_of_all_tasks_selected + ram_step
 
         ###########################
         ### terminated 결정 - 시작 ###
@@ -157,8 +157,8 @@ class TaskAllocationEnv(gym.Env):
             terminated = True
             info['DoneReasonType'] = DoneReasonType.TYPE_FAIL_1   ##### [TYPE 1] The Same Task Selected #####
 
-        elif (cpu_of_all_tasks_selected_with_this_step > self.CPU_RESOURCE_CAPACITY) or \
-                    (ram_of_all_tasks_selected_with_this_step > self.RAM_RESOURCE_CAPACITY):
+        elif (self.cpu_allocated + cpu_step > self.CPU_RESOURCE_CAPACITY) or \
+                    (self.ram_allocated + ram_step > self.RAM_RESOURCE_CAPACITY):
             terminated = True
             info['DoneReasonType'] = DoneReasonType.TYPE_FAIL_2   ##### [TYPE 2] Resource Limit Exceeded #####
 
@@ -167,12 +167,12 @@ class TaskAllocationEnv(gym.Env):
             self.internal_state[action_idx][1] = -1
             self.internal_state[action_idx][2] = -1
 
-            self.cpu_of_all_tasks_selected = cpu_of_all_tasks_selected_with_this_step
-            self.ram_of_all_tasks_selected = ram_of_all_tasks_selected_with_this_step
-            self.resource_of_all_tasks_selected = self.cpu_of_all_tasks_selected + self.ram_of_all_tasks_selected
-
             self.internal_state[-1][1] = self.internal_state[-1][1] - cpu_step
             self.internal_state[-1][2] = self.internal_state[-1][2] - ram_step
+
+            self.cpu_allocated = self.cpu_allocated + cpu_step
+            self.ram_allocated = self.ram_allocated + ram_step
+            self.total_allocated = self.total_allocated + cpu_step + ram_step
 
             conditions = [
                 self.internal_state[-1][1] < self.min_task_cpu_demand,
@@ -197,9 +197,9 @@ class TaskAllocationEnv(gym.Env):
         new_observation = self.get_observation_from_internal_state()
 
         if terminated:
-            reward = self.get_reward_information(done_type=info['DoneReasonType'])
+            reward = self.get_reward(done_type=info['DoneReasonType'])
         else:
-            reward = self.get_reward_information(done_type=None)
+            reward = self.get_reward(done_type=None)
 
         info["TOTAL_RESOURCE_CAPACITY"] = self.TOTAL_RESOURCE_CAPACITY
         info["CPU_CAPACITY"] = self.CPU_RESOURCE_CAPACITY
@@ -208,64 +208,23 @@ class TaskAllocationEnv(gym.Env):
         info["TOTAL_CPU_DEMAND"] = self.total_cpu_demand
         info["TOTAL_RAM_DEMAND"] = self.total_ram_demand
         info["ACTIONS_SELECTED"] = self.actions_selected
-        info["TOTAL_RESOURCES_USED"] = self.resource_of_all_tasks_selected
-        info["CPU_RESOURCE_USED"] = self.cpu_of_all_tasks_selected
-        info["RAM_RESOURCE_USED"] = self.ram_of_all_tasks_selected
+        info["TOTAL_ALLOCATED"] = self.total_allocated
+        info["CPU_ALLOCATED"] = self.cpu_allocated
+        info["RAM_ALLOCATED"] = self.ram_allocated
         info["INTERNAL_STATE"] = self.internal_state
 
         truncated = None
 
         return new_observation, reward, terminated, truncated, info
 
-    def get_reward_information(self, done_type=None):
-        if done_type == DoneReasonType.TYPE_FAIL_1 or done_type == DoneReasonType.TYPE_FAIL_2:  # Resource Limit Exceeded
+    def get_reward(self, done_type=None):
+        # The Same Task Selected or
+        # Resource Limit Exceeded
+        if done_type == DoneReasonType.TYPE_FAIL_1 or done_type == DoneReasonType.TYPE_FAIL_2:
             fail_reward = -1.0
         else:
             fail_reward = 0.0
 
-        utilization_reward = self.resources_step / self.total_resource_demand
+        reward = self.resources_step / self.TOTAL_RESOURCE_CAPACITY
 
-        return utilization_reward + fail_reward
-
-    # def get_reward_information(self, done_type=None):
-    #     if done_type is None:  # Normal Step
-    #         utilization_reward = self.res
-    #         mission_complete_reward = 0.0
-    #         misbehavior_reward = 0.0
-    #
-    #     elif done_type == DoneReasonType.TYPE_FAIL_1:  # The Same Task Selected
-    #         utilization_reward = 0.0
-    #         mission_complete_reward = 0.0
-    #         misbehavior_reward = -1.0
-    #
-    #     elif done_type == DoneReasonType.TYPE_FAIL_2:  # Resource Limit Exceeded
-    #         utilization_reward = 0.0
-    #         mission_complete_reward = 0.0
-    #         misbehavior_reward = -1.0
-    #
-    #     elif done_type == DoneReasonType.TYPE_SUCCESS_1:  # All Tasks Allocated Successfully - [ALL]
-    #         utilization_reward = np.tanh(
-    #             (self.cpu_of_all_tasks_selected + self.ram_of_all_tasks_selected) / self.TOTAL_RESOURCE_CAPACITY
-    #         )
-    #         mission_complete_reward = 2.0
-    #         misbehavior_reward = 0.0
-    #
-    #     elif done_type == DoneReasonType.TYPE_SUCCESS_2:  # Resource allocated fully - [BEST]
-    #         utilization_reward = np.tanh(
-    #             (self.cpu_of_all_tasks_selected + self.ram_of_all_tasks_selected) / self.TOTAL_RESOURCE_CAPACITY
-    #         )
-    #         mission_complete_reward = 2.0
-    #         misbehavior_reward = 0.0
-    #
-    #     elif done_type == DoneReasonType.TYPE_SUCCESS_3:  # One of Resource allocated fully - [GOOD]
-    #         utilization_reward = np.tanh(
-    #             (self.cpu_of_all_tasks_selected + self.ram_of_all_tasks_selected) / self.TOTAL_RESOURCE_CAPACITY
-    #         )
-    #         mission_complete_reward = 1.0
-    #         misbehavior_reward = 0.0
-    #
-    #     else:
-    #         raise ValueError()
-    #
-    #     return mission_complete_reward + misbehavior_reward
-    #     # return utilization_reward + mission_complete_reward + misbehavior_reward
+        return reward + fail_reward
