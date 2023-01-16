@@ -279,7 +279,7 @@ def main():
         "early_stop_patience": env.NUM_TASKS * 50,  # episode_reward가 개선될 때까지 기다리는 기간
     }
 
-    use_wandb = False
+    use_wandb = True
     dqn = DQN(
         env=env, validation_env=validation_env, config=config, use_wandb=use_wandb
     )
