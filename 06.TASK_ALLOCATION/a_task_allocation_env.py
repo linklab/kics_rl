@@ -9,10 +9,10 @@ import enum
 ENV_NAME = "Task_Allocation"
 
 env_config = {
-    "num_tasks": 10,  # 대기하는 태스크 개수
+    "num_tasks": 15,  # 대기하는 태스크 개수
     "static_task_resource_demand_used": False,  # 항상 미리 정해 놓은 태스크 자원 요구량 사용 유무
     "same_task_resource_demand_used": False,  # 각 에피소드 초기에 동일한 태스크 자원 요구량 사용 유무
-    "initial_resources_capacity": [70, 80],  # 초기 자원 용량
+    "initial_resources_capacity": [100, 100],  # 초기 자원 용량
     "low_demand_resource_at_task": [1, 1],  # 태스크의 각 자원 최소 요구량
     "high_demand_resource_at_task": [20, 20]  # 태스크의 각 자원 최대 요구량
 }
@@ -75,8 +75,7 @@ class TaskAllocationEnv(gym.Env):
             [13, 14],
         ]
         
-        if self.SAME_TASK_RESOURCE_DEMAND_USED:
-            self.TASK_RESOURCE_DEMAND = None
+        self.TASK_RESOURCE_DEMAND = None
 
         print("NUM_TASKS:", self.NUM_TASKS)
         print("STATIC_TASK_RESOURCE_DEMAND_USED:", self.STATIC_TASK_RESOURCE_DEMAND_USED)
@@ -102,14 +101,13 @@ class TaskAllocationEnv(gym.Env):
 
                 state[:-1, 1:] = self.TASK_RESOURCE_DEMAND
             else:
-                task_resource_demand = np.zeros(shape=(self.NUM_TASKS, 2))
+                self.TASK_RESOURCE_DEMAND = np.zeros(shape=(self.NUM_TASKS, 2))
                 for task_idx in range(self.NUM_TASKS):
-                    task_resource_demand[task_idx] = np.random.randint(
+                    self.TASK_RESOURCE_DEMAND[task_idx] = np.random.randint(
                         low=self.MIN_RESOURCE_DEMAND_AT_TASK, high=self.MAX_RESOURCE_DEMAND_AT_TASK, size=(1, 2)
                     )
-                task_resource_demand = np.sort(task_resource_demand, axis=0)
-                state[:-1, 1:] = task_resource_demand
-
+                self.TASK_RESOURCE_DEMAND = np.sort(self.TASK_RESOURCE_DEMAND, axis=0)
+                state[:-1, 1:] = self.TASK_RESOURCE_DEMAND
 
         self.min_task_cpu_demand = state[:-1, 1].min()
         self.min_task_ram_demand = state[:-1, 2].min()
@@ -178,13 +176,13 @@ class TaskAllocationEnv(gym.Env):
 
             if 0 not in self.internal_state[:self.NUM_TASKS, 0]:
                 terminated = True
-                info['DoneReasonType'] = DoneReasonType.TYPE_SUCCESS_1              ##### All Tasks Allocated Successfully - [ALL] #####
+                info['DoneReasonType'] = DoneReasonType.TYPE_SUCCESS_1  ##### All Tasks Allocated Successfully - [ALL] #####
             elif all(conditions):
                 terminated = True
-                info['DoneReasonType'] = DoneReasonType.TYPE_SUCCESS_2              ##### All Resources Used Up - [BEST] #####
+                info['DoneReasonType'] = DoneReasonType.TYPE_SUCCESS_2  ##### All Resources Used Up - [BEST] #####
             elif any(conditions):
                 terminated = True
-                info['DoneReasonType'] = DoneReasonType.TYPE_SUCCESS_3              ##### A Resource Used Up - [GOOD] #####
+                info['DoneReasonType'] = DoneReasonType.TYPE_SUCCESS_3  ##### A Resource Used Up - [GOOD] #####
             else:
                 pass
         ###########################

@@ -8,19 +8,16 @@ np.set_printoptions(edgeitems=3, linewidth=100000, formatter=dict(float=lambda x
 import torch
 from a_task_allocation_env import TaskAllocationEnv, ENV_NAME
 from b_qnet import QNet, MODEL_DIR
-
+from e_google_or_tools import solve_by_or_tool
 
 def play(env, q, num_episodes):
     episode_reward_lst = np.zeros(shape=(num_episodes,), dtype=float)
+    or_tool_solution_lst = np.zeros(shape=(num_episodes,), dtype=float)
 
     for i in range(num_episodes):
         episode_reward = 0  # cumulative_reward
-
-        # Environment 초기화와 변수 초기화
-        observation, _ = env.reset()
-
+        observation, info = env.reset()
         episode_steps = 0
-
         done = False
 
         while not done:
@@ -35,11 +32,24 @@ def play(env, q, num_episodes):
 
         episode_reward_lst[i] = episode_reward
 
-        print("[EPISODE: {0}] EPISODE_STEPS: {1:3d}, EPISODE REWARD: {2:5.3f}, INFO:{3}".format(
-            i, episode_steps, episode_reward, info
+        or_tool_solution = solve_by_or_tool(
+            num_tasks=env.NUM_TASKS,
+            num_resources=2,
+            task_demands=env.TASK_RESOURCE_DEMAND,
+            capacity_of_resources=env.INITIAL_RESOURCES_CAPACITY
+        )
+
+        or_tool_solution_lst[i] = or_tool_solution
+
+        # print("[EPISODE: {0}] EPISODE_STEPS: {1:3d}, EPISODE REWARD: {2:5.3f}, INFO:{3}".format(
+        #     i, episode_steps, episode_reward, info
+        # ))
+
+        print("[EPISODE: {0}] EPISODE_STEPS: {1:3d}, EPISODE REWARD|OR_TOOL_SOLUTION: {2:5.3f}|{3:5.3f}".format(
+            i, episode_steps, episode_reward, or_tool_solution
         ))
 
-    return episode_reward_lst, np.average(episode_reward_lst)
+    return episode_reward_lst, np.average(episode_reward_lst), or_tool_solution_lst, np.average(or_tool_solution_lst)
 
 
 def main_play(num_episodes, env_name):
@@ -49,8 +59,11 @@ def main_play(num_episodes, env_name):
     model_params = torch.load(os.path.join(MODEL_DIR, "dqn_{0}_{1}_latest.pth".format(env.NUM_TASKS, env_name)))
     q.load_state_dict(model_params)
 
-    episode_reward_lst, episode_reward_avg = play(env, q, num_episodes=num_episodes)
-    print("[Play Episode Reward: {0}] Average: {1:.3f}".format(episode_reward_lst, episode_reward_avg))
+    episode_reward_lst, episode_reward_avg, or_tool_solution_lst, or_tool_solutions_avg = play(
+        env, q, num_episodes=num_episodes
+    )
+    print("[    DQN]   Episode Rewards: {0}, Average: {1:.3f}".format(episode_reward_lst, episode_reward_avg))
+    print("[OR TOOL] OR Tool Solutions: {0}, Average: {1:.3f}".format(or_tool_solution_lst, or_tool_solutions_avg))
 
     env.close()
 
