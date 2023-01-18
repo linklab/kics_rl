@@ -80,8 +80,6 @@ class TaskAllocationEnv(gym.Env):
         print("NUM_TASKS:", self.NUM_TASKS)
         print("STATIC_TASK_RESOURCE_DEMAND_USED:", self.STATIC_TASK_RESOURCE_DEMAND_USED)
         print("SAME_TASK_RESOURCE_DEMAND_USED:", self.SAME_TASK_RESOURCE_DEMAND_USED)
-        print("min_task_CPU_demand:", self.min_task_cpu_demand)
-        print("min_task_RAM_demand:", self.min_task_ram_demand)
         print("###########################################################")
 
     def get_initial_internal_state(self):

@@ -1,3 +1,4 @@
+import numpy as np
 from ortools.linear_solver import pywraplp
 
 # Create the solver
@@ -40,3 +41,26 @@ def solve_by_or_tool(num_tasks, num_resources, task_demands, capacity_of_resourc
 
     return utilization
 
+
+if __name__ == "__main__":
+    num_tasks = 100000
+    num_resources = 2
+
+    task_demands = np.zeros(shape=(num_tasks, num_resources))
+
+    for task_idx in range(num_tasks):
+        task_demands[task_idx] = np.random.randint(
+            low=[1] * num_resources,
+            high=[20] * num_resources,
+            size=(1, num_resources)
+        )
+    capacity_of_resources = [100] * num_resources
+
+    or_tool_solution = solve_by_or_tool(
+        num_tasks=num_tasks,
+        num_resources=2,
+        task_demands=task_demands,
+        capacity_of_resources=capacity_of_resources
+    )
+
+    print(or_tool_solution)
