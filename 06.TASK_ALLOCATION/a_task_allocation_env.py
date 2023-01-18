@@ -9,7 +9,7 @@ import enum
 ENV_NAME = "Task_Allocation"
 
 env_config = {
-    "num_tasks": 15,  # 대기하는 태스크 개수
+    "num_tasks": 20,  # 대기하는 태스크 개수
     "static_task_resource_demand_used": False,  # 항상 미리 정해 놓은 태스크 자원 요구량 사용 유무
     "same_task_resource_demand_used": False,  # 각 에피소드 초기에 동일한 태스크 자원 요구량 사용 유무
     "initial_resources_capacity": [100, 100],  # 초기 자원 용량
