@@ -22,12 +22,13 @@ from d_qnet import QNet, ReplayBuffer, Transition, MODEL_DIR
 class EarlyStopModelSaver:
     """주어진 patience 이후로 episode_reward가 개선되지 않으면 학습을 조기 중지"""
 
-    def __init__(self, patience=30):
+    def __init__(self, patience, max_num_episodes):
         """
         Args:
             patience (int): episode_reward가 개선될 때까지 기다리는 기간
         """
         self.patience = patience
+        self.max_num_episodes = max_num_episodes
         self.counter = 0
         self.max_validation_episode_reward_avg = -np.inf
 
@@ -52,6 +53,10 @@ class EarlyStopModelSaver:
                 print("[EARLY STOP] COUNTER: {0} - Solved in {1:,} episode, {2:,} steps ({3:,} training steps)!".format(
                     self.counter, n_episode, time_steps, training_time_steps
                 ))
+            if n_episode == self.max_num_episodes:
+                early_stop = True
+                self.model_save(validation_episode_reward_avg, env, env_name, n_episode, current_time, q)
+                print("[EARLY STOP] COUNTER: {0} - MAX_NUM_EPISODES: {1}".format(self.counter, n_episode))
             else:
                 print("[EARLY STOP] COUNTER: {0}".format(self.counter))
         return early_stop
@@ -114,7 +119,9 @@ class DQN:
         self.time_steps = 0
         self.training_time_steps = 0
 
-        self.early_stop_model_saver = EarlyStopModelSaver(patience=config["early_stop_patience"])
+        self.early_stop_model_saver = EarlyStopModelSaver(
+            patience=config["early_stop_patience"], max_num_episodes=config["max_num_episodes"]
+        )
 
     def epsilon_scheduled(self, current_episode):
         fraction = min(current_episode / self.epsilon_scheduled_last_episode, 1.0)
@@ -266,7 +273,7 @@ def main():
     validation_env = deepcopy(env)
 
     config = {
-        "max_num_episodes": 300_000,  # 훈련을 위한 최대 에피소드 횟수
+        "max_num_episodes": 1_000_000,  # 훈련을 위한 최대 에피소드 횟수
         "batch_size": 128,  # 훈련시 배치에서 한번에 가져오는 랜덤 배치 사이즈
         "learning_rate": 0.0001,  # 학습율
         "gamma": 0.99,  # 감가율
@@ -278,7 +285,7 @@ def main():
         "print_episode_interval": 10,  # Episode 통계 출력에 관한 에피소드 간격
         "train_num_episodes_before_next_validation": 200,  # 검증 사이 마다 각 훈련 episode 간격
         "validation_num_episodes": 30,  # 검증에 수행하는 에피소드 횟수
-        "early_stop_patience": env.NUM_TASKS * 50,  # episode_reward가 개선될 때까지 기다리는 기간
+        "early_stop_patience": env.NUM_TASKS * 10_000,  # episode_reward가 개선될 때까지 기다리는 기간
     }
 
     use_wandb = True
