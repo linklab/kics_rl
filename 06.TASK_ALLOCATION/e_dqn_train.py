@@ -46,6 +46,13 @@ class EarlyStopModelSaver:
             self.model_save(validation_episode_reward_avg, env, env_name, n_episode, current_time, q)
             self.max_validation_episode_reward_avg = validation_episode_reward_avg
             self.counter = 0
+            print("[EARLY STOP] COUNTER: {0} - MODEL_SAVED with validation_episode_reward_avg: {1:5.3f}".format(
+                self.counter, validation_episode_reward_avg
+            ))
+        if n_episode == self.max_num_episodes:
+            early_stop = True
+            self.model_save(validation_episode_reward_avg, env, env_name, n_episode, current_time, q)
+            print("[EARLY STOP] COUNTER: {0} - MAX_NUM_EPISODES: {1}".format(self.counter, n_episode))
         else:
             self.counter += 1
             if self.counter >= self.patience:
@@ -53,10 +60,6 @@ class EarlyStopModelSaver:
                 print("[EARLY STOP] COUNTER: {0} - Solved in {1:,} episode, {2:,} steps ({3:,} training steps)!".format(
                     self.counter, n_episode, time_steps, training_time_steps
                 ))
-            if n_episode == self.max_num_episodes:
-                early_stop = True
-                self.model_save(validation_episode_reward_avg, env, env_name, n_episode, current_time, q)
-                print("[EARLY STOP] COUNTER: {0} - MAX_NUM_EPISODES: {1}".format(self.counter, n_episode))
             else:
                 print("[EARLY STOP] COUNTER: {0}".format(self.counter))
         return early_stop
