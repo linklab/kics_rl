@@ -27,7 +27,7 @@ def play(env, q, num_episodes):
 
         while not done:
             episode_steps += 1
-            action = q.get_action(observation, epsilon=0.0)
+            action = q.get_action(observation, epsilon=0.0, action_mask=info["action_mask"])
 
             next_observation, reward, terminated, truncated, info = env.step(action)
 
@@ -44,15 +44,15 @@ def play(env, q, num_episodes):
             num_tasks=env.NUM_TASKS,
             num_resources=2,
             task_demands=env.TASK_RESOURCE_DEMAND,
-            capacity_of_resources=env.INITIAL_RESOURCES_CAPACITY
+            resource_capacity=env.INITIAL_RESOURCES_CAPACITY
         )
         or_tool_duration = datetime.now() - or_tool_start_time
         or_tool_solution_lst[i] = or_tool_solution
         or_tool_duration_lst.append(or_tool_duration)
 
-        # print("[EPISODE: {0}] EPISODE_STEPS: {1:3d}, EPISODE REWARD: {2:5.3f}, INFO:{3}".format(
-        #     i, episode_steps, episode_reward, info
-        # ))
+        print("[EPISODE: {0}] EPISODE_STEPS: {1:3d}, EPISODE REWARD: {2:5.3f}, INFO:{3}".format(
+            i, episode_steps, episode_reward, info
+        ))
 
         print("[EPISODE: {0}] RL_EPISODE_REWARD(STEPS: {1:3d})|OR_TOOL_SOLUTION: {2:>6.3f}|{3:>6.3f}, "
               "RL_DURATION|OR_TOOL_DURATION: {4}|{5}".format(
