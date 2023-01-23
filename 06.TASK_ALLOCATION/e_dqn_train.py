@@ -46,9 +46,6 @@ class EarlyStopModelSaver:
             self.model_save(validation_episode_reward_avg, env, env_name, n_episode, current_time, q)
             self.max_validation_episode_reward_avg = validation_episode_reward_avg
             self.counter = 0
-            print("[EARLY STOP] COUNTER: {0} - MODEL_SAVED with validation_episode_reward_avg: {1:5.3f}".format(
-                self.counter, validation_episode_reward_avg
-            ))
         if n_episode == self.max_num_episodes:
             early_stop = True
             self.model_save(validation_episode_reward_avg, env, env_name, n_episode, current_time, q)
@@ -69,7 +66,6 @@ class EarlyStopModelSaver:
             env.NUM_TASKS, env_name, validation_episode_reward_avg, n_episode, current_time
         )
         torch.save(q.state_dict(), os.path.join(MODEL_DIR, filename))
-        print("[EARLY STOP_MODEL_SAVER] MODEL_SAVED - {0}".format(filename))
 
         copyfile(
             src=os.path.join(MODEL_DIR, filename),
