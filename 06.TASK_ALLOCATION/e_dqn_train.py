@@ -15,8 +15,8 @@ import wandb
 from datetime import datetime
 from shutil import copyfile
 
-from a_task_allocation_env import TaskAllocationEnv, ENV_NAME
-from b_qnet import QNet, ReplayBuffer, Transition, MODEL_DIR
+from b_task_allocation_env import TaskAllocationEnv, ENV_NAME
+from d_qnet import QNet, ReplayBuffer, Transition, MODEL_DIR
 
 
 class EarlyStopModelSaver:
@@ -49,8 +49,8 @@ class EarlyStopModelSaver:
             self.counter += 1
             if self.counter >= self.patience:
                 early_stop = True
-                print("[EARLY STOP] Solved in {0:,} episode, {1:,} steps ({2:,} training steps)!".format(
-                    n_episode, time_steps, training_time_steps
+                print("[EARLY STOP] COUNTER: {0} - Solved in {1:,} episode, {2:,} steps ({3:,} training steps)!".format(
+                    self.counter, n_episode, time_steps, training_time_steps
                 ))
             else:
                 print("[EARLY STOP] COUNTER: {0}".format(self.counter))
@@ -138,17 +138,16 @@ class DQN:
             epsilon = self.epsilon_scheduled(n_episode)
 
             episode_reward = 0
-
-            observation, _ = self.env.reset()
+            observation, info = self.env.reset()
 
             done = False
 
             while not done:
                 self.time_steps += 1
 
-                action = self.q.get_action(observation, epsilon)
+                action = self.q.get_action(observation, epsilon, info["action_mask"])
 
-                next_observation, reward, terminated, truncated, _ = self.env.step(action)
+                next_observation, reward, terminated, truncated, info = self.env.step(action)
 
                 transition = Transition(observation, action, next_observation, reward, terminated)
 
@@ -244,14 +243,14 @@ class DQN:
         for i in range(self.validation_num_episodes):
             episode_reward = 0
 
-            observation, _ = self.validation_env.reset()
+            observation, info = self.validation_env.reset()
 
             done = False
 
             while not done:
-                action = self.q.get_action(observation, epsilon=0.0)
+                action = self.q.get_action(observation, epsilon=0.0, action_mask=info["action_mask"])
 
-                next_observation, reward, terminated, truncated, _ = self.validation_env.step(action)
+                next_observation, reward, terminated, truncated, info = self.validation_env.step(action)
 
                 episode_reward += reward
                 observation = next_observation
@@ -268,7 +267,7 @@ def main():
 
     config = {
         "max_num_episodes": 300_000,  # 훈련을 위한 최대 에피소드 횟수
-        "batch_size": 64,  # 훈련시 배치에서 한번에 가져오는 랜덤 배치 사이즈
+        "batch_size": 128,  # 훈련시 배치에서 한번에 가져오는 랜덤 배치 사이즈
         "learning_rate": 0.0001,  # 학습율
         "gamma": 0.99,  # 감가율
         "target_sync_step_interval": 500,  # 기존 Q 모델을 타깃 Q 모델로 동기화시키는 step 간격

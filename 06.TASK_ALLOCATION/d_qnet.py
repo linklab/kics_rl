@@ -39,14 +39,18 @@ class QNet(nn.Module):
         x = self.fc3(x)
         return x
 
-    def get_action(self, obs, epsilon=0.1):
+    def get_action(self, obs, epsilon, action_mask):
         # random.random(): 0.0과 1.0사이의 임의의 값을 반환
         if random.random() < epsilon:
-            action = random.randrange(0, self.n_actions)
+            available_actions = np.where(action_mask == 1.0)[0]
+            action = random.choice(available_actions)
         else:
-            out = self.forward(obs)
-            action = torch.argmax(out, dim=-1)
+            action_mask = torch.tensor(action_mask, dtype=torch.bool, device=DEVICE)
+            q_values = self.forward(obs)
+            q_values = q_values.masked_fill(~action_mask, -float('inf'))
+            action = torch.argmax(q_values, dim=-1)
             action = action.item()
+
         return action  # argmax: 가장 큰 값에 대응되는 인덱스 반환
 
 

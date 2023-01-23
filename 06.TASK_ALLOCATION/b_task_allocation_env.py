@@ -1,5 +1,6 @@
 # Problem: Multiple Tasks Allocation to One Computing server
 import operator
+import random
 
 import gymnasium as gym
 import numpy as np
@@ -9,7 +10,7 @@ import enum
 ENV_NAME = "Task_Allocation"
 
 env_config = {
-    "num_tasks": 20,  # 대기하는 태스크 개수
+    "num_tasks": 10,  # 대기하는 태스크 개수
     "static_task_resource_demand_used": False,  # 항상 미리 정해 놓은 태스크 자원 요구량 사용 유무
     "same_task_resource_demand_used": False,  # 각 에피소드 초기에 동일한 태스크 자원 요구량 사용 유무
     "initial_resources_capacity": [100, 100],  # 초기 자원 용량
@@ -50,6 +51,8 @@ class TaskAllocationEnv(gym.Env):
         self.total_cpu_demand = None
         self.total_ram_demand = None
         self.total_resource_demand = None
+
+        self.action_mask = None
 
         self.NUM_TASKS = env_config["num_tasks"]
         self.INITIAL_RESOURCES_CAPACITY = env_config["initial_resources_capacity"]
@@ -93,7 +96,7 @@ class TaskAllocationEnv(gym.Env):
                     self.TASK_RESOURCE_DEMAND = np.zeros(shape=(self.NUM_TASKS, 2))
                     for task_idx in range(self.NUM_TASKS):
                         self.TASK_RESOURCE_DEMAND[task_idx] = np.random.randint(
-                            low=self.MIN_RESOURCE_DEMAND_AT_TASK, high=self.MAX_RESOURCE_DEMAND_AT_TASK, size=(1, 2)
+                            low=self.MIN_RESOURCE_DEMAND_AT_TASK, high=self.MAX_RESOURCE_DEMAND_AT_TASK, size=(2, )
                         )
                     self.TASK_RESOURCE_DEMAND = np.sort(self.TASK_RESOURCE_DEMAND, axis=0)
 
@@ -102,7 +105,7 @@ class TaskAllocationEnv(gym.Env):
                 self.TASK_RESOURCE_DEMAND = np.zeros(shape=(self.NUM_TASKS, 2))
                 for task_idx in range(self.NUM_TASKS):
                     self.TASK_RESOURCE_DEMAND[task_idx] = np.random.randint(
-                        low=self.MIN_RESOURCE_DEMAND_AT_TASK, high=self.MAX_RESOURCE_DEMAND_AT_TASK, size=(1, 2)
+                        low=self.MIN_RESOURCE_DEMAND_AT_TASK, high=self.MAX_RESOURCE_DEMAND_AT_TASK, size=(2, )
                     )
                 self.TASK_RESOURCE_DEMAND = np.sort(self.TASK_RESOURCE_DEMAND, axis=0)
                 state[:-1, 1:] = self.TASK_RESOURCE_DEMAND
@@ -127,15 +130,20 @@ class TaskAllocationEnv(gym.Env):
         self.total_allocated = 0
         self.cpu_allocated = 0
         self.ram_allocated = 0
+        self.action_mask = np.ones(shape=(self.NUM_TASKS,), dtype=float)
 
         observation = self.get_observation_from_internal_state()
-        info = None
+        info = {
+            "action_mask": self.action_mask
+        }
 
         return observation, info
 
     def step(self, action_idx):
         info = {}
         self.actions_selected.append(action_idx)
+
+        self.action_mask[action_idx] = 0.0
 
         cpu_step = self.internal_state[action_idx][1]
         ram_step = self.internal_state[action_idx][2]
@@ -205,6 +213,7 @@ class TaskAllocationEnv(gym.Env):
         info["CPU_ALLOCATED"] = self.cpu_allocated
         info["RAM_ALLOCATED"] = self.ram_allocated
         info["INTERNAL_STATE"] = self.internal_state
+        info["action_mask"] = self.action_mask
 
         truncated = None
 

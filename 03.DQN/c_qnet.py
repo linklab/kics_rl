@@ -44,8 +44,8 @@ class QNet(nn.Module):
         if random.random() < epsilon:
             action = random.randrange(0, self.n_actions)
         else:
-            out = self.forward(obs)
-            action = torch.argmax(out, dim=-1)
+            q_values = self.forward(obs)
+            action = torch.argmax(q_values, dim=-1)
             action = action.item()
         return action  # argmax: 가장 큰 값에 대응되는 인덱스 반환
 

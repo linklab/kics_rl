@@ -8,9 +8,9 @@ import numpy as np
 np.set_printoptions(edgeitems=3, linewidth=100000, formatter=dict(float=lambda x: "%5.2f" % x))
 
 import torch
-from a_task_allocation_env import TaskAllocationEnv, ENV_NAME
-from b_qnet import QNet, MODEL_DIR
-from e_google_or_tools import solve_by_or_tool
+from b_task_allocation_env import TaskAllocationEnv, ENV_NAME
+from d_qnet import QNet, MODEL_DIR
+from a_task_allocation_with_google_or_tools import solve_by_or_tool
 
 def play(env, q, num_episodes):
     rl_episode_reward_lst = np.zeros(shape=(num_episodes,), dtype=float)

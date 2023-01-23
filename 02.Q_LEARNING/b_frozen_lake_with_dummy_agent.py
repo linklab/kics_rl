@@ -27,7 +27,7 @@ def main():
 
         episode_step += 1
         print("[Step: {0:3}] Obs.: {1:>2}, Action: {2}({3}), Next Obs.: {4:>2}, "
-              "Reward: {5}, Terminated: {6:>5}, Truncated: {7:>5}, Info: {8}".format(
+              "Reward: {5}, Terminated: {6}, Truncated: {7}, Info: {8}".format(
             episode_step, observation, action, ACTION_STRING_LIST[action],
             next_observation, reward, terminated, truncated, info
         ))

@@ -2,10 +2,10 @@ import numpy as np
 from ortools.linear_solver import pywraplp
 
 # Create the solver
-solver = pywraplp.Solver('multi_dimensional_knapsack', pywraplp.Solver.SAT_INTEGER_PROGRAMMING)
+solver = pywraplp.Solver('simple_task_allocation', pywraplp.Solver.SAT_INTEGER_PROGRAMMING)
 
 
-def solve_by_or_tool(num_tasks, num_resources, task_demands, capacity_of_resources):
+def solve_by_or_tool(num_tasks, num_resources, task_demands, resource_capacity):
     # Define the variables
     # num_tasks = 5
     # num_resources = 3
@@ -15,14 +15,14 @@ def solve_by_or_tool(num_tasks, num_resources, task_demands, capacity_of_resourc
 
     # Define the constraints
     # task_demands = [[4, 2, 3], [3, 5, 2], [2, 1, 3], [4, 2, 1], [2, 3, 3]]
-    # capacity_of_resources = [10, 15, 12]
+    # resource_capacity = [10, 15, 12]
     for j in range(num_resources):
-        solver.Add(solver.Sum([items[i] * task_demands[i][j] for i in range(num_tasks)]) <= capacity_of_resources[j])
+        solver.Add(solver.Sum([items[i] * task_demands[i][j] for i in range(num_tasks)]) <= resource_capacity[j])
 
     # Define the objective function
     resources_of_selected_tasks = [items[i] * task_demands[i][j] for j in range(num_resources) for i in range(num_tasks)]
     solver.Maximize(
-        solver.Sum(resources_of_selected_tasks) / sum(capacity_of_resources)
+        solver.Sum(resources_of_selected_tasks) / sum(resource_capacity)
     )
 
     # Solve the problem
@@ -43,24 +43,20 @@ def solve_by_or_tool(num_tasks, num_resources, task_demands, capacity_of_resourc
 
 
 if __name__ == "__main__":
-    num_tasks = 100000
+    num_tasks = 1000
     num_resources = 2
 
     task_demands = np.zeros(shape=(num_tasks, num_resources))
 
     for task_idx in range(num_tasks):
         task_demands[task_idx] = np.random.randint(
-            low=[1] * num_resources,
-            high=[20] * num_resources,
-            size=(1, num_resources)
+            low=[1] * num_resources, high=[20] * num_resources, size=(num_resources, )
         )
-    capacity_of_resources = [100] * num_resources
+    resource_capacity = [100] * num_resources
 
-    or_tool_solution = solve_by_or_tool(
-        num_tasks=num_tasks,
-        num_resources=2,
-        task_demands=task_demands,
-        capacity_of_resources=capacity_of_resources
+    utilization = solve_by_or_tool(
+        num_tasks=num_tasks, num_resources=2, task_demands=task_demands,
+        resource_capacity=resource_capacity
     )
 
-    print(or_tool_solution)
+    print(utilization)
