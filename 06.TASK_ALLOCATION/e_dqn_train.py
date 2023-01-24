@@ -279,8 +279,8 @@ def main():
     validation_env = deepcopy(env)
 
     config = {
-        "max_num_episodes": 1_000_000,  # 훈련을 위한 최대 에피소드 횟수
-        "batch_size": 4,  # 훈련시 배치에서 한번에 가져오는 랜덤 배치 사이즈
+        "max_num_episodes": 500_000,  # 훈련을 위한 최대 에피소드 횟수
+        "batch_size": 128,  # 훈련시 배치에서 한번에 가져오는 랜덤 배치 사이즈
         "learning_rate": 0.0001,  # 학습율
         "gamma": 0.99,  # 감가율
         "target_sync_step_interval": 500,  # 기존 Q 모델을 타깃 Q 모델로 동기화시키는 step 간격
@@ -294,7 +294,7 @@ def main():
         "early_stop_patience": env.NUM_TASKS * 10_000,  # episode_reward가 개선될 때까지 기다리는 기간
     }
 
-    use_wandb = False
+    use_wandb = True
     dqn = DQN(
         env=env, validation_env=validation_env, config=config, use_wandb=use_wandb
     )
