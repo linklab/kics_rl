@@ -155,7 +155,7 @@ class DQN:
 
                 next_observation, reward, terminated, truncated, info = self.env.step(action)
 
-                transition = Transition(observation, action, next_observation, reward, terminated)
+                transition = Transition(observation, action, next_observation, reward, terminated, info["action_mask"])
 
                 self.replay_buffer.append(transition)
 
@@ -216,14 +216,21 @@ class DQN:
 
         batch = self.replay_buffer.sample(self.batch_size)
 
-        observations, actions, next_observations, rewards, dones = batch
+        observations, actions, next_observations, rewards, dones, action_masks = batch
 
         q_out = self.q(observations)
         q_values = q_out.gather(dim=1, index=actions)
 
         with torch.no_grad():
             q_prime_out = self.target_q(next_observations)
-            # next_state_values.shape: torch.Size([32, 1])
+
+            assert len(q_prime_out) == len(action_masks)
+            # print(action_masks, "!!!-1")
+            # print(~action_masks, "!!!-2")
+            for i in range(len(action_masks)):
+                if not action_masks[i, :].all():
+                    q_prime_out[i] = q_prime_out[i].masked_fill(action_masks[i, :], -float('inf'))
+            # print(q_prime_out, "!!!-3")
             max_q_prime = q_prime_out.max(dim=1, keepdim=True).values
             max_q_prime[dones] = 0.0
 
@@ -273,7 +280,7 @@ def main():
 
     config = {
         "max_num_episodes": 1_000_000,  # 훈련을 위한 최대 에피소드 횟수
-        "batch_size": 128,  # 훈련시 배치에서 한번에 가져오는 랜덤 배치 사이즈
+        "batch_size": 4,  # 훈련시 배치에서 한번에 가져오는 랜덤 배치 사이즈
         "learning_rate": 0.0001,  # 학습율
         "gamma": 0.99,  # 감가율
         "target_sync_step_interval": 500,  # 기존 Q 모델을 타깃 Q 모델로 동기화시키는 step 간격
@@ -287,7 +294,7 @@ def main():
         "early_stop_patience": env.NUM_TASKS * 10_000,  # episode_reward가 개선될 때까지 기다리는 기간
     }
 
-    use_wandb = True
+    use_wandb = False
     dqn = DQN(
         env=env, validation_env=validation_env, config=config, use_wandb=use_wandb
     )

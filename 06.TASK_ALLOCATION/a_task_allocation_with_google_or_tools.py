@@ -7,20 +7,17 @@ solver = pywraplp.Solver('simple_task_allocation', pywraplp.Solver.SAT_INTEGER_P
 
 def solve_by_or_tool(num_tasks, num_resources, task_demands, resource_capacity):
     # Define the variables
-    # num_tasks = 5
-    # num_resources = 3
     items = []
     for i in range(num_tasks):
         items.append(solver.IntVar(0, 1, 'item_' + str(i)))
 
     # Define the constraints
-    # task_demands = [[4, 2, 3], [3, 5, 2], [2, 1, 3], [4, 2, 1], [2, 3, 3]]
-    # resource_capacity = [10, 15, 12]
     for j in range(num_resources):
         solver.Add(solver.Sum([items[i] * task_demands[i][j] for i in range(num_tasks)]) <= resource_capacity[j])
 
     # Define the objective function
     resources_of_selected_tasks = [items[i] * task_demands[i][j] for j in range(num_resources) for i in range(num_tasks)]
+
     solver.Maximize(
         solver.Sum(resources_of_selected_tasks) / sum(resource_capacity)
     )
@@ -32,10 +29,14 @@ def solve_by_or_tool(num_tasks, num_resources, task_demands, resource_capacity):
     utilization = None
     if status == pywraplp.Solver.OPTIMAL:
         utilization = solver.Objective().Value()
-        # print("Optimal solution found with objective value = ", solver.Objective().Value())
-        # for i in range(num_tasks):
-        #     if items[i].solution_value() > 0:
-        #         print("Item", i, "is selected with value = ", values[i])
+        for i in range(num_tasks):
+            print("Task {0} [{1:>4}, {2:>4}] is selected with value = {3}".format(
+                i, task_demands[i][0], task_demands[i][1], items[i].solution_value())
+            )
+        resources_of_selected_tasks = [
+            items[i].solution_value() * task_demands[i][j] for j in range(num_resources) for i in range(num_tasks)
+        ]
+        print(sum(resources_of_selected_tasks) / sum(resource_capacity))
     else:
         print("Solver status: ", status)
 
@@ -43,7 +44,7 @@ def solve_by_or_tool(num_tasks, num_resources, task_demands, resource_capacity):
 
 
 if __name__ == "__main__":
-    num_tasks = 1000
+    num_tasks = 10
     num_resources = 2
 
     task_demands = np.zeros(shape=(num_tasks, num_resources))
@@ -52,11 +53,11 @@ if __name__ == "__main__":
         task_demands[task_idx] = np.random.randint(
             low=[1] * num_resources, high=[20] * num_resources, size=(num_resources, )
         )
+
     resource_capacity = [100] * num_resources
 
     utilization = solve_by_or_tool(
-        num_tasks=num_tasks, num_resources=2, task_demands=task_demands,
-        resource_capacity=resource_capacity
+        num_tasks=num_tasks, num_resources=2, task_demands=task_demands, resource_capacity=resource_capacity
     )
 
-    print(utilization)
+    print("Utilization: {0}".format(utilization))

@@ -42,12 +42,12 @@ class QNet(nn.Module):
     def get_action(self, obs, epsilon, action_mask):
         # random.random(): 0.0과 1.0사이의 임의의 값을 반환
         if random.random() < epsilon:
-            available_actions = np.where(action_mask == 1.0)[0]
+            available_actions = np.where(action_mask == 0.0)[0]
             action = random.choice(available_actions)
         else:
             action_mask = torch.tensor(action_mask, dtype=torch.bool, device=DEVICE)
             q_values = self.forward(obs)
-            q_values = q_values.masked_fill(~action_mask, -float('inf'))
+            q_values = q_values.masked_fill(action_mask, -float('inf'))
             action = torch.argmax(q_values, dim=-1)
             action = action.item()
 
@@ -56,7 +56,7 @@ class QNet(nn.Module):
 
 Transition = collections.namedtuple(
     typename='Transition',
-    field_names=['observation', 'action', 'next_observation', 'reward', 'done']
+    field_names=['observation', 'action', 'next_observation', 'reward', 'done', 'action_mask']
 )
 
 
@@ -80,7 +80,7 @@ class ReplayBuffer:
         # Get random index
         indices = np.random.choice(len(self.buffer), size=batch_size, replace=False)
         # Sample
-        observations, actions, next_observations, rewards, dones = zip(*[self.buffer[idx] for idx in indices])
+        observations, actions, next_observations, rewards, dones, action_masks = zip(*[self.buffer[idx] for idx in indices])
 
         # Convert to ndarray for speed up cuda
         observations = np.array(observations)
@@ -92,6 +92,7 @@ class ReplayBuffer:
         rewards = np.array(rewards)
         rewards = np.expand_dims(rewards, axis=-1) if rewards.ndim == 1 else rewards
         dones = np.array(dones, dtype=bool)
+        action_masks = np.array(action_masks)
         # actions.shape, rewards.shape, dones.shape: (32, 1) (32, 1) (32,)
 
         # Convert to tensor
@@ -100,5 +101,6 @@ class ReplayBuffer:
         next_observations = torch.tensor(next_observations, dtype=torch.float32, device=DEVICE)
         rewards = torch.tensor(rewards, dtype=torch.float32, device=DEVICE)
         dones = torch.tensor(dones, dtype=torch.bool, device=DEVICE)
+        action_masks = torch.tensor(action_masks, dtype=torch.bool, device=DEVICE)
 
-        return observations, actions, next_observations, rewards, dones
+        return observations, actions, next_observations, rewards, dones, action_masks

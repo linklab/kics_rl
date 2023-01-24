@@ -10,7 +10,7 @@ import enum
 ENV_NAME = "Task_Allocation"
 
 env_config = {
-    "num_tasks": 10,  # 대기하는 태스크 개수
+    "num_tasks": 3,  # 대기하는 태스크 개수
     "static_task_resource_demand_used": False,  # 항상 미리 정해 놓은 태스크 자원 요구량 사용 유무
     "same_task_resource_demand_used": False,  # 각 에피소드 초기에 동일한 태스크 자원 요구량 사용 유무
     "initial_resources_capacity": [100, 100],  # 초기 자원 용량
@@ -130,7 +130,7 @@ class TaskAllocationEnv(gym.Env):
         self.total_allocated = 0
         self.cpu_allocated = 0
         self.ram_allocated = 0
-        self.action_mask = np.ones(shape=(self.NUM_TASKS,), dtype=float)
+        self.action_mask = np.zeros(shape=(self.NUM_TASKS,), dtype=float)
 
         observation = self.get_observation_from_internal_state()
         info = {
@@ -143,7 +143,7 @@ class TaskAllocationEnv(gym.Env):
         info = {}
         self.actions_selected.append(action_idx)
 
-        self.action_mask[action_idx] = 0.0
+        self.action_mask[action_idx] = 1.0
 
         cpu_step = self.internal_state[action_idx][1]
         ram_step = self.internal_state[action_idx][2]
