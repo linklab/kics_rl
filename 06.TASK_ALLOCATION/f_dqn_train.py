@@ -250,7 +250,6 @@ class DQN:
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
-        print()
         # sync
         if self.time_steps % self.target_sync_step_interval == 0:
             self.target_q.load_state_dict(self.q.state_dict())
@@ -291,7 +290,7 @@ def main():
     )
     print("*" * 200)
 
-    use_wandb = False
+    use_wandb = True
     dqn = DQN(
         env=env, validation_env=validation_env, config=dqn_config, use_wandb=use_wandb
     )
