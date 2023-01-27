@@ -13,7 +13,7 @@ STATIC_TASK_RESOURCE_DEMAND_SAMPLE = [
     [84, 98],
 ]
 
-NUM_TASKS = 10
+NUM_TASKS = 100
 
 env_config = {
     "num_tasks": NUM_TASKS,  # 대기하는 태스크 개수
@@ -31,7 +31,7 @@ if env_config["use_static_task_resource_demand"]:
     assert env_config["num_tasks"] == 10
 
 dqn_config = {
-    "max_num_episodes": 50_000,  # 훈련을 위한 최대 에피소드 횟수
+    "max_num_episodes": 500_000,  # 훈련을 위한 최대 에피소드 횟수
     "batch_size": 128,  # 훈련시 배치에서 한번에 가져오는 랜덤 배치 사이즈
     "learning_rate": 0.0001,  # 학습율
     "gamma": 0.99,  # 감가율
