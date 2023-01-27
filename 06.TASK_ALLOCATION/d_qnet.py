@@ -22,10 +22,11 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 class QNet(nn.Module):
-    def __init__(self, n_features, n_actions):
+    def __init__(self, n_features, n_actions, use_action_mask):
         super(QNet, self).__init__()
         self.n_features = n_features
         self.n_actions = n_actions
+        self.use_action_mask = use_action_mask
         self.fc1 = nn.Linear(n_features, 128)  # fully connected
         self.fc2 = nn.Linear(128, 128)
         self.fc3 = nn.Linear(128, n_actions)
@@ -42,12 +43,18 @@ class QNet(nn.Module):
     def get_action(self, obs, epsilon, action_mask):
         # random.random(): 0.0과 1.0사이의 임의의 값을 반환
         if random.random() < epsilon:
-            available_actions = np.where(action_mask == 0.0)[0]
+            if self.use_action_mask:
+                available_actions = np.where(action_mask == 0.0)[0]
+            else:
+                available_actions = range(self.n_actions)
             action = random.choice(available_actions)
         else:
-            action_mask = torch.tensor(action_mask, dtype=torch.bool, device=DEVICE)
             q_values = self.forward(obs)
-            q_values = q_values.masked_fill(action_mask, -float('inf'))
+
+            if self.use_action_mask:
+                action_mask = torch.tensor(action_mask, dtype=torch.bool, device=DEVICE)
+                q_values = q_values.masked_fill(action_mask, -float('inf'))
+
             action = torch.argmax(q_values, dim=-1)
             action = action.item()
 

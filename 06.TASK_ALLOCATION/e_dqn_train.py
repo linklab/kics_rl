@@ -7,7 +7,7 @@ os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
 import numpy as np
 
-np.set_printoptions(edgeitems=3, linewidth=100000, formatter=dict(float=lambda x: "%5.2f" % x))
+np.set_printoptions(edgeitems=3, linewidth=100000, formatter=dict(float=lambda x: "%5.3f" % x))
 import torch
 import torch.nn.functional as F
 import torch.optim as optim
@@ -94,6 +94,7 @@ class DQN:
         self.batch_size = config["batch_size"]
         self.learning_rate = config["learning_rate"]
         self.gamma = config["gamma"]
+        self.use_action_mask = config["use_action_mask"]
         self.target_sync_step_interval = config["target_sync_step_interval"]
         self.replay_buffer_size = config["replay_buffer_size"]
         self.epsilon_start = config["epsilon_start"]
@@ -106,8 +107,12 @@ class DQN:
         self.epsilon_scheduled_last_episode = self.max_num_episodes * self.epsilon_final_scheduled_percent
 
         # network
-        self.q = QNet(n_features=(self.env.NUM_TASKS + 1) * 3, n_actions=self.env.NUM_TASKS)
-        self.target_q = QNet(n_features=(self.env.NUM_TASKS + 1) * 3, n_actions=self.env.NUM_TASKS)
+        self.q = QNet(
+            n_features=(self.env.NUM_TASKS + 1) * 3, n_actions=self.env.NUM_TASKS, use_action_mask=self.use_action_mask
+        )
+        self.target_q = QNet(
+            n_features=(self.env.NUM_TASKS + 1) * 3, n_actions=self.env.NUM_TASKS, use_action_mask=self.use_action_mask
+        )
         self.target_q.load_state_dict(self.q.state_dict())
 
         self.optimizer = optim.Adam(self.q.parameters(), lr=self.learning_rate)
@@ -224,14 +229,13 @@ class DQN:
         with torch.no_grad():
             q_prime_out = self.target_q(next_observations)
 
-            assert len(q_prime_out) == len(action_masks)
-            # print(action_masks, "!!!-1")
-            # print(~action_masks, "!!!-2")
-            for i in range(len(action_masks)):
-                if not action_masks[i, :].all():
-                    q_prime_out[i] = q_prime_out[i].masked_fill(action_masks[i, :], -float('inf'))
-            # print(q_prime_out, "!!!-3")
-            max_q_prime = q_prime_out.max(dim=1, keepdim=True).values
+            # if self.use_action_mask:
+            #     assert len(q_prime_out) == len(action_masks)
+            #     for i in range(len(action_masks)):
+            #         if not action_masks[i, :].all():
+            #             q_prime_out[i] = q_prime_out[i].masked_fill(action_masks[i, :], -float('inf'))
+
+            max_q_prime = q_prime_out.max(dim=-1, keepdim=True).values
             max_q_prime[dones] = 0.0
 
             # target_state_action_values.shape: torch.Size([32, 1])
@@ -279,10 +283,11 @@ def main():
     validation_env = deepcopy(env)
 
     config = {
-        "max_num_episodes": 500_000,  # 훈련을 위한 최대 에피소드 횟수
-        "batch_size": 128,  # 훈련시 배치에서 한번에 가져오는 랜덤 배치 사이즈
+        "max_num_episodes": 20_000,  # 훈련을 위한 최대 에피소드 횟수
+        "batch_size": 4,  # 훈련시 배치에서 한번에 가져오는 랜덤 배치 사이즈
         "learning_rate": 0.0001,  # 학습율
         "gamma": 0.99,  # 감가율
+        "use_action_mask": True,
         "target_sync_step_interval": 500,  # 기존 Q 모델을 타깃 Q 모델로 동기화시키는 step 간격
         "replay_buffer_size": 300_000,  # 리플레이 버퍼 사이즈
         "epsilon_start": 0.95,  # Epsilon 초기 값
@@ -294,7 +299,7 @@ def main():
         "early_stop_patience": env.NUM_TASKS * 10_000,  # episode_reward가 개선될 때까지 기다리는 기간
     }
 
-    use_wandb = True
+    use_wandb = False
     dqn = DQN(
         env=env, validation_env=validation_env, config=config, use_wandb=use_wandb
     )

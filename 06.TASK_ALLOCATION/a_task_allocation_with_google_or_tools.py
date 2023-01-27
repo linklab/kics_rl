@@ -30,7 +30,7 @@ def solve_by_or_tool(num_tasks, num_resources, task_demands, resource_capacity):
     if status == pywraplp.Solver.OPTIMAL:
         utilization = solver.Objective().Value()
         for i in range(num_tasks):
-            print("Task {0} [{1:>4}, {2:>4}] is selected with value = {3}".format(
+            print("Task {0} [{1:>3},{2:>3}] is selected with value = {3}".format(
                 i, task_demands[i][0], task_demands[i][1], items[i].solution_value())
             )
         resources_of_selected_tasks = [
@@ -47,12 +47,25 @@ if __name__ == "__main__":
     num_tasks = 10
     num_resources = 2
 
-    task_demands = np.zeros(shape=(num_tasks, num_resources))
+    # task_demands = np.zeros(shape=(num_tasks, num_resources))
+    #
+    # for task_idx in range(num_tasks):
+    #     task_demands[task_idx] = np.random.randint(
+    #         low=[1] * num_resources, high=[20] * num_resources, size=(num_resources, )
+    #     )
 
-    for task_idx in range(num_tasks):
-        task_demands[task_idx] = np.random.randint(
-            low=[1] * num_resources, high=[20] * num_resources, size=(num_resources, )
-        )
+    task_demands = [
+        [6, 12],
+        [4, 17],
+        [8, 14],
+        [14, 7],
+        [14, 9],
+        [13, 12],
+        [12, 14],
+        [17, 10],
+        [12, 15],
+        [13, 14],
+    ]
 
     resource_capacity = [100] * num_resources
 

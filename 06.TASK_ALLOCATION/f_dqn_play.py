@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
 import numpy as np
-np.set_printoptions(edgeitems=3, linewidth=100000, formatter=dict(float=lambda x: "%5.2f" % x))
+np.set_printoptions(edgeitems=3, linewidth=100000, formatter=dict(float=lambda x: "%5.3f" % x))
 
 import torch
 from b_task_allocation_env import TaskAllocationEnv, ENV_NAME
@@ -54,12 +54,14 @@ def play(env, q, num_episodes):
             i, episode_steps, episode_reward, info
         ))
 
-        print("[EPISODE: {0}] RL_EPISODE_REWARD(STEPS: {1:3d})|OR_TOOL_SOLUTION: {2:>6.3f}|{3:>6.3f}, "
+        print("*** RL_EPISODE_REWARD(STEPS: {1:3d})|OR_TOOL_SOLUTION: {2:>6.3f}|{3:>6.3f}, "
               "RL_DURATION|OR_TOOL_DURATION: {4}|{5}".format(
             i, episode_steps, episode_reward, or_tool_solution,
             rl_duration,
             or_tool_duration,
         ))
+
+        print()
 
     return {
         "rl_episode_reward_lst": rl_episode_reward_lst,
@@ -74,7 +76,7 @@ def play(env, q, num_episodes):
 def main_play(num_episodes, env_name):
     env = TaskAllocationEnv()
 
-    q = QNet(n_features=(env.NUM_TASKS + 1) * 3, n_actions=env.NUM_TASKS)
+    q = QNet(n_features=(env.NUM_TASKS + 1) * 3, n_actions=env.NUM_TASKS, use_action_mask=False)
     model_params = torch.load(os.path.join(MODEL_DIR, "dqn_{0}_{1}_latest.pth".format(env.NUM_TASKS, env_name)))
     q.load_state_dict(model_params)
 

@@ -9,18 +9,28 @@ import enum
 
 ENV_NAME = "Task_Allocation"
 
+# env_config = {
+#     "num_tasks": 10,  # 대기하는 태스크 개수
+#     "use_static_task_resource_demand": True,  # 항상 미리 정해 놓은 태스크 자원 요구량 사용 유무
+#     "same_task_resource_demand": False,  # 각 에피소드 초기에 동일한 태스크 자원 요구량 사용 유무
+#     "initial_resources_capacity": [100, 100],  # 초기 자원 용량
+#     "low_demand_resource_at_task": [1, 1],  # 태스크의 각 자원 최소 요구량
+#     "high_demand_resource_at_task": [20, 20]  # 태스크의 각 자원 최대 요구량
+# }
+
 env_config = {
-    "num_tasks": 10,  # 대기하는 태스크 개수
-    "static_task_resource_demand_used": False,  # 항상 미리 정해 놓은 태스크 자원 요구량 사용 유무
-    "same_task_resource_demand_used": False,  # 각 에피소드 초기에 동일한 태스크 자원 요구량 사용 유무
-    "initial_resources_capacity": [100, 100],  # 초기 자원 용량
+    "num_tasks": 3,  # 대기하는 태스크 개수
+    "use_static_task_resource_demand": False,  # 항상 미리 정해 놓은 태스크 자원 요구량 사용 유무
+    "same_task_resource_demand": False,  # 각 에피소드 초기에 동일한 태스크 자원 요구량 사용 유무
+    "initial_resources_capacity": [30, 30],  # 초기 자원 용량
     "low_demand_resource_at_task": [1, 1],  # 태스크의 각 자원 최소 요구량
     "high_demand_resource_at_task": [20, 20]  # 태스크의 각 자원 최대 요구량
 }
-if env_config["same_task_resource_demand_used"]:
-    assert env_config["static_task_resource_demand_used"] is False
 
-if env_config["static_task_resource_demand_used"]:
+if env_config["same_task_resource_demand"]:
+    assert env_config["use_static_task_resource_demand"] is False
+
+if env_config["use_static_task_resource_demand"]:
     assert env_config["num_tasks"] == 10
 
 
@@ -58,8 +68,8 @@ class TaskAllocationEnv(gym.Env):
         self.INITIAL_RESOURCES_CAPACITY = env_config["initial_resources_capacity"]
         self.MIN_RESOURCE_DEMAND_AT_TASK = env_config["low_demand_resource_at_task"]
         self.MAX_RESOURCE_DEMAND_AT_TASK = env_config["high_demand_resource_at_task"]
-        self.STATIC_TASK_RESOURCE_DEMAND_USED = env_config["static_task_resource_demand_used"]
-        self.SAME_TASK_RESOURCE_DEMAND_USED = env_config["same_task_resource_demand_used"]
+        self.USE_STATIC_TASK_RESOURCE_DEMAND = env_config["use_static_task_resource_demand"]
+        self.SAME_TASK_RESOURCE_DEMAND = env_config["same_task_resource_demand"]
 
         self.CPU_RESOURCE_CAPACITY = self.INITIAL_RESOURCES_CAPACITY[0]
         self.RAM_RESOURCE_CAPACITY = self.INITIAL_RESOURCES_CAPACITY[1]
@@ -81,17 +91,17 @@ class TaskAllocationEnv(gym.Env):
         self.TASK_RESOURCE_DEMAND = None
 
         print("NUM_TASKS:", self.NUM_TASKS)
-        print("STATIC_TASK_RESOURCE_DEMAND_USED:", self.STATIC_TASK_RESOURCE_DEMAND_USED)
-        print("SAME_TASK_RESOURCE_DEMAND_USED:", self.SAME_TASK_RESOURCE_DEMAND_USED)
+        print("USE_STATIC_TASK_RESOURCE_DEMAND:", self.USE_STATIC_TASK_RESOURCE_DEMAND)
+        print("SAME_TASK_RESOURCE_DEMAND:", self.SAME_TASK_RESOURCE_DEMAND)
         print("###########################################################")
 
     def get_initial_internal_state(self):
         state = np.zeros(shape=(self.NUM_TASKS + 1, 3), dtype=int)
 
-        if self.STATIC_TASK_RESOURCE_DEMAND_USED:
+        if self.USE_STATIC_TASK_RESOURCE_DEMAND is True:
             state[:-1, 1:] = self.STATIC_TASK_RESOURCE_DEMAND
         else:
-            if self.SAME_TASK_RESOURCE_DEMAND_USED:
+            if self.SAME_TASK_RESOURCE_DEMAND:
                 if self.TASK_RESOURCE_DEMAND is None:
                     self.TASK_RESOURCE_DEMAND = np.zeros(shape=(self.NUM_TASKS, 2))
                     for task_idx in range(self.NUM_TASKS):
