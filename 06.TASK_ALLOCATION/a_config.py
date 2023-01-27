@@ -1,33 +1,41 @@
-# env_config = {
-#     "num_tasks": 10,  # 대기하는 태스크 개수
-#     "use_static_task_resource_demand": True,  # 항상 미리 정해 놓은 태스크 자원 요구량 사용 유무
-#     "same_task_resource_demand": False,  # 각 에피소드 초기에 동일한 태스크 자원 요구량 사용 유무
-#     "initial_resources_capacity": [100, 100],  # 초기 자원 용량
-#     "low_demand_resource_at_task": [1, 1],  # 태스크의 각 자원 최소 요구량
-#     "high_demand_resource_at_task": [20, 20]  # 태스크의 각 자원 최대 요구량
-# }
+ENV_NAME = "Task_Allocation"
+
+STATIC_TASK_RESOURCE_DEMAND_SAMPLE = [
+    [21, 21],
+    [44, 25],
+    [48, 32],
+    [44, 47],
+    [44, 49],
+    [43, 53],
+    [65, 64],
+    [73, 69],
+    [79, 89],
+    [84, 98],
+]
+
+NUM_TASKS = 3
 
 env_config = {
-    "num_tasks": 3,  # 대기하는 태스크 개수
+    "num_tasks": NUM_TASKS,  # 대기하는 태스크 개수
     "use_static_task_resource_demand": False,  # 항상 미리 정해 놓은 태스크 자원 요구량 사용 유무
-    "same_task_resource_demand": False,  # 각 에피소드 초기에 동일한 태스크 자원 요구량 사용 유무
-    "initial_resources_capacity": [30, 30],  # 초기 자원 용량
+    "use_same_task_resource_demand": False,  # 각 에피소드 초기에 동일한 태스크 자원 요구량 사용 유무
+    "initial_resources_capacity": [NUM_TASKS * 50, NUM_TASKS * 50],  # 초기 자원 용량
     "low_demand_resource_at_task": [1, 1],  # 태스크의 각 자원 최소 요구량
-    "high_demand_resource_at_task": [20, 20]  # 태스크의 각 자원 최대 요구량
+    "high_demand_resource_at_task": [100, 100]  # 태스크의 각 자원 최대 요구량
 }
 
-if env_config["same_task_resource_demand"]:
+if env_config["use_same_task_resource_demand"]:
     assert env_config["use_static_task_resource_demand"] is False
 
 if env_config["use_static_task_resource_demand"]:
     assert env_config["num_tasks"] == 10
 
 dqn_config = {
-    "max_num_episodes": 20_000,  # 훈련을 위한 최대 에피소드 횟수
+    "max_num_episodes": 50_000,  # 훈련을 위한 최대 에피소드 횟수
     "batch_size": 4,  # 훈련시 배치에서 한번에 가져오는 랜덤 배치 사이즈
     "learning_rate": 0.0001,  # 학습율
     "gamma": 0.99,  # 감가율
-    "use_action_mask": True,
+    "use_action_mask": True,  # action mask 사용 유무
     "target_sync_step_interval": 500,  # 기존 Q 모델을 타깃 Q 모델로 동기화시키는 step 간격
     "replay_buffer_size": 300_000,  # 리플레이 버퍼 사이즈
     "epsilon_start": 0.95,  # Epsilon 초기 값
@@ -36,5 +44,6 @@ dqn_config = {
     "print_episode_interval": 10,  # Episode 통계 출력에 관한 에피소드 간격
     "train_num_episodes_before_next_validation": 200,  # 검증 사이 마다 각 훈련 episode 간격
     "validation_num_episodes": 30,  # 검증에 수행하는 에피소드 횟수
-    "early_stop_patience": env_config["num_tasks"] * 10_000,  # episode_reward가 개선될 때까지 기다리는 기간
+    "use_early_stop_with_best_validation_model": True,     # early stop 사용 유무
+    "early_stop_patience": env_config["num_tasks"] * 100,  # episode_reward가 개선될 때까지 기다리는 기간
 }

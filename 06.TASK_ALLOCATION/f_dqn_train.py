@@ -15,8 +15,8 @@ import wandb
 from datetime import datetime
 from shutil import copyfile
 
-from a_config import env_config, dqn_config
-from c_task_allocation_env import TaskAllocationEnv, ENV_NAME
+from a_config import env_config, dqn_config, ENV_NAME, NUM_TASKS
+from c_task_allocation_env import TaskAllocationEnv
 from e_qnet import QNet, ReplayBuffer, Transition, MODEL_DIR
 
 
@@ -34,7 +34,7 @@ class EarlyStopModelSaver:
         self.max_validation_episode_reward_avg = -np.inf
 
     def check(
-            self, validation_episode_reward_avg, env, env_name, current_time,
+            self, validation_episode_reward_avg, num_tasks, env_name, current_time,
             n_episode, time_steps, training_time_steps, q
     ):
         early_stop = False
@@ -44,13 +44,9 @@ class EarlyStopModelSaver:
             validation_episode_reward_avg >= self.max_validation_episode_reward_avg
         ]
         if all(conditions):
-            self.model_save(validation_episode_reward_avg, env, env_name, n_episode, current_time, q)
+            self.model_save(validation_episode_reward_avg, num_tasks, env_name, n_episode, current_time, q)
             self.max_validation_episode_reward_avg = validation_episode_reward_avg
             self.counter = 0
-        if n_episode == self.max_num_episodes:
-            early_stop = True
-            self.model_save(validation_episode_reward_avg, env, env_name, n_episode, current_time, q)
-            print("[EARLY STOP] COUNTER: {0} - MAX_NUM_EPISODES: {1}".format(self.counter, n_episode))
         else:
             self.counter += 1
             if self.counter >= self.patience:
@@ -62,15 +58,21 @@ class EarlyStopModelSaver:
                 print("[EARLY STOP] COUNTER: {0}".format(self.counter))
         return early_stop
 
-    def model_save(self, validation_episode_reward_avg, env, env_name, n_episode, current_time, q):
-        filename = "dqn_{0}_{1}_{2:5.3f}_{3}_{4}.pth".format(
-            env.NUM_TASKS, env_name, validation_episode_reward_avg, n_episode, current_time
+    def model_save(self, validation_episode_reward_avg, num_tasks, env_name, n_episode, current_time, q):
+        filename = "dqn_{0}_{1}_{2}_{3:5.3f}_{4}.pth".format(
+            num_tasks, env_name, current_time, validation_episode_reward_avg, n_episode
         )
         torch.save(q.state_dict(), os.path.join(MODEL_DIR, filename))
+        print("*** MODEL SAVED TO {0}".format(
+            os.path.join(MODEL_DIR, filename))
+        )
 
         copyfile(
             src=os.path.join(MODEL_DIR, filename),
-            dst=os.path.join(MODEL_DIR, "dqn_{0}_{1}_latest.pth".format(env.NUM_TASKS, env_name))
+            dst=os.path.join(MODEL_DIR, "dqn_{0}_{1}_latest.pth".format(NUM_TASKS, env_name))
+        )
+        print("*** MODEL UPDATED TO {0}".format(
+            os.path.join(MODEL_DIR, "dqn_{0}_{1}_latest.pth".format(NUM_TASKS, env_name)))
         )
 
 
@@ -103,16 +105,17 @@ class DQN:
         self.epsilon_final_scheduled_percent = config["epsilon_final_scheduled_percent"]
         self.print_episode_interval = config["print_episode_interval"]
         self.train_num_episodes_before_next_validation = config["train_num_episodes_before_next_validation"]
+        self.use_early_stop_with_best_validation_model = config["use_early_stop_with_best_validation_model"]
         self.validation_num_episodes = config["validation_num_episodes"]
 
         self.epsilon_scheduled_last_episode = self.max_num_episodes * self.epsilon_final_scheduled_percent
 
         # network
         self.q = QNet(
-            n_features=(self.env.NUM_TASKS + 1) * 3, n_actions=self.env.NUM_TASKS, use_action_mask=self.use_action_mask
+            n_features=(NUM_TASKS + 1) * 3, n_actions=NUM_TASKS, use_action_mask=self.use_action_mask
         )
         self.target_q = QNet(
-            n_features=(self.env.NUM_TASKS + 1) * 3, n_actions=self.env.NUM_TASKS, use_action_mask=self.use_action_mask
+            n_features=(NUM_TASKS + 1) * 3, n_actions=NUM_TASKS, use_action_mask=self.use_action_mask
         )
         self.target_q.load_state_dict(self.q.state_dict())
 
@@ -157,11 +160,11 @@ class DQN:
             while not done:
                 self.time_steps += 1
 
-                action = self.q.get_action(observation, epsilon, info["action_mask"])
+                action = self.q.get_action(observation, epsilon, action_mask=info["ACTION_MASK"])
 
                 next_observation, reward, terminated, truncated, info = self.env.step(action)
 
-                transition = Transition(observation, action, next_observation, reward, terminated, info["action_mask"])
+                transition = Transition(observation, action, next_observation, reward, terminated, info["ACTION_MASK"])
 
                 self.replay_buffer.append(transition)
 
@@ -193,10 +196,11 @@ class DQN:
                     validation_episode_reward_lst, validation_episode_reward_avg
                 ))
 
-                is_terminated = self.early_stop_model_saver.check(
-                    validation_episode_reward_avg, self.env, ENV_NAME, self.current_time,
-                    n_episode, self.time_steps, self.training_time_steps, self.q
-                )
+                if self.use_early_stop_with_best_validation_model:
+                    is_terminated = self.early_stop_model_saver.check(
+                        validation_episode_reward_avg, NUM_TASKS, ENV_NAME, self.current_time,
+                        n_episode, self.time_steps, self.training_time_steps, self.q
+                    )
 
             if self.use_wandb:
                 self.wandb.log({
@@ -212,6 +216,10 @@ class DQN:
             if is_terminated:
                 break
 
+        if not self.use_early_stop_with_best_validation_model:
+            self.early_stop_model_saver.model_save(
+                validation_episode_reward_avg, NUM_TASKS, ENV_NAME, self.max_num_episodes, self.current_time, self.q
+            )
         total_training_time = time.time() - total_train_start_time
         total_training_time = time.strftime('%H:%M:%S', time.gmtime(total_training_time))
         print("Total Training End : {}".format(total_training_time))
@@ -230,20 +238,14 @@ class DQN:
         with torch.no_grad():
             q_prime_out = self.target_q(next_observations)
 
-            # if self.use_action_mask:
-            #     assert len(q_prime_out) == len(action_masks)
-            #     for i in range(len(action_masks)):
-            #         if not action_masks[i, :].all():
-            #             q_prime_out[i] = q_prime_out[i].masked_fill(action_masks[i, :], -float('inf'))
+            if self.use_action_mask:
+                q_prime_out = q_prime_out.masked_fill(action_masks, -float('inf'))
 
             max_q_prime = q_prime_out.max(dim=-1, keepdim=True).values
             max_q_prime[dones] = 0.0
-
-            # target_state_action_values.shape: torch.Size([32, 1])
             targets = rewards + self.gamma * max_q_prime
 
-        # loss is just scalar torch value
-        loss = F.mse_loss(targets.detach(), q_values)
+        loss = F.mse_loss(targets.detach(), q_values, reduce=True)
 
         self.optimizer.zero_grad()
         loss.backward()
@@ -266,7 +268,7 @@ class DQN:
             done = False
 
             while not done:
-                action = self.q.get_action(observation, epsilon=0.0, action_mask=info["action_mask"])
+                action = self.q.get_action(observation, epsilon=0.0, action_mask=info["ACTION_MASK"])
 
                 next_observation, reward, terminated, truncated, info = self.validation_env.step(action)
 
@@ -283,7 +285,13 @@ def main():
     env = TaskAllocationEnv(env_config=env_config)
     validation_env = deepcopy(env)
 
-    use_wandb = False
+    print("USE_ACTION_MASK: {0}".format(dqn_config["use_action_mask"]))
+    print("USE_EARLY_STOP_WITH_BEST_VALIDATION_MODEL: {0}".format(
+        dqn_config["use_early_stop_with_best_validation_model"])
+    )
+    print("*" * 200)
+
+    use_wandb = True
     dqn = DQN(
         env=env, validation_env=validation_env, config=dqn_config, use_wandb=use_wandb
     )

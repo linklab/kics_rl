@@ -54,7 +54,6 @@ class QNet(nn.Module):
             if self.use_action_mask:
                 action_mask = torch.tensor(action_mask, dtype=torch.bool, device=DEVICE)
                 q_values = q_values.masked_fill(action_mask, -float('inf'))
-
             action = torch.argmax(q_values, dim=-1)
             action = action.item()
 

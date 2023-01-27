@@ -8,8 +8,8 @@ import numpy as np
 np.set_printoptions(edgeitems=3, linewidth=100000, formatter=dict(float=lambda x: "%5.3f" % x))
 
 import torch
-from a_config import env_config, dqn_config
-from c_task_allocation_env import TaskAllocationEnv, ENV_NAME
+from a_config import env_config, dqn_config, ENV_NAME, NUM_TASKS
+from c_task_allocation_env import TaskAllocationEnv
 from e_qnet import QNet, MODEL_DIR
 from b_task_allocation_with_google_or_tools import solve_by_or_tool
 
@@ -22,15 +22,15 @@ def play(env, q, num_episodes):
 
     for i in range(num_episodes):
         observation, info = env.reset()
-        rl_start_time = datetime.now()
         episode_reward = 0  # cumulative_reward
         episode_steps = 0
         done = False
         print("[EPISODE: {0}]\nRESET, Info: {1}".format(i, info))
 
+        rl_start_time = datetime.now()
         while not done:
             episode_steps += 1
-            action = q.get_action(observation, epsilon=0.0, action_mask=info["action_mask"])
+            action = q.get_action(observation, epsilon=0.0, action_mask=info["ACTION_MASK"])
 
             next_observation, reward, terminated, truncated, info = env.step(action)
 
@@ -46,11 +46,11 @@ def play(env, q, num_episodes):
             i, episode_steps, episode_reward, info
         ))
 
-        print("*** OR TOOL RESULT ***")
+        print("*** GOOGLE OR TOOL RESULT ***")
         or_tool_start_time = datetime.now()
+
         or_tool_solution = solve_by_or_tool(
-            num_tasks=env.NUM_TASKS,
-            num_resources=2,
+            num_tasks=NUM_TASKS, num_resources=2,
             task_demands=env.TASK_RESOURCE_DEMAND,
             resource_capacity=env.INITIAL_RESOURCES_CAPACITY
         )
@@ -82,8 +82,14 @@ def play(env, q, num_episodes):
 def main_play(num_episodes, env_name):
     env = TaskAllocationEnv(env_config=env_config)
 
-    q = QNet(n_features=(env.NUM_TASKS + 1) * 3, n_actions=env.NUM_TASKS, use_action_mask=dqn_config["use_action_mask"])
-    model_params = torch.load(os.path.join(MODEL_DIR, "dqn_{0}_{1}_latest.pth".format(env.NUM_TASKS, env_name)))
+    print("USE_ACTION_MASK: {0}".format(dqn_config["use_action_mask"]))
+    print("USE_EARLY_STOP_WITH_BEST_VALIDATION_MODEL: {0}".format(
+        dqn_config["use_early_stop_with_best_validation_model"])
+    )
+    print("*" * 200)
+
+    q = QNet(n_features=(NUM_TASKS + 1) * 3, n_actions=NUM_TASKS, use_action_mask=dqn_config["use_action_mask"])
+    model_params = torch.load(os.path.join(MODEL_DIR, "dqn_{0}_{1}_latest.pth".format(NUM_TASKS, env_name)))
     q.load_state_dict(model_params)
 
     results = play(env, q, num_episodes=num_episodes)

@@ -1,13 +1,10 @@
 # Problem: Multiple Tasks Allocation to One Computing server
-import operator
-import random
-
 import gymnasium as gym
 import numpy as np
 import copy
 import enum
+from a_config import STATIC_TASK_RESOURCE_DEMAND_SAMPLE
 
-ENV_NAME = "Task_Allocation"
 
 class DoneReasonType(enum.Enum):
     TYPE_FAIL_1 = "The Same Task Selected"
@@ -44,39 +41,25 @@ class TaskAllocationEnv(gym.Env):
         self.MIN_RESOURCE_DEMAND_AT_TASK = env_config["low_demand_resource_at_task"]
         self.MAX_RESOURCE_DEMAND_AT_TASK = env_config["high_demand_resource_at_task"]
         self.USE_STATIC_TASK_RESOURCE_DEMAND = env_config["use_static_task_resource_demand"]
-        self.SAME_TASK_RESOURCE_DEMAND = env_config["same_task_resource_demand"]
+        self.USE_SAME_TASK_RESOURCE_DEMAND = env_config["use_same_task_resource_demand"]
 
         self.CPU_RESOURCE_CAPACITY = self.INITIAL_RESOURCES_CAPACITY[0]
         self.RAM_RESOURCE_CAPACITY = self.INITIAL_RESOURCES_CAPACITY[1]
         self.TOTAL_RESOURCE_CAPACITY = sum(self.INITIAL_RESOURCES_CAPACITY)
 
-        self.STATIC_TASK_RESOURCE_DEMAND = [
-            [6, 12],
-            [4, 17],
-            [8, 14],
-            [14, 7],
-            [14, 9],
-            [13, 12],
-            [12, 14],
-            [17, 10],
-            [12, 15],
-            [13, 14],
-        ]
-        
         self.TASK_RESOURCE_DEMAND = None
 
         print("NUM_TASKS:", self.NUM_TASKS)
-        print("USE_STATIC_TASK_RESOURCE_DEMAND:", self.USE_STATIC_TASK_RESOURCE_DEMAND)
-        print("SAME_TASK_RESOURCE_DEMAND:", self.SAME_TASK_RESOURCE_DEMAND)
-        print("###########################################################")
+        print("USE_STATIC_TASK_RESOURCE_DEMAND: {0}".format(env_config["use_static_task_resource_demand"]))
+        print("USE_SAME_TASK_RESOURCE_DEMAND: {0}".format(env_config["use_same_task_resource_demand"]))
 
     def get_initial_internal_state(self):
         state = np.zeros(shape=(self.NUM_TASKS + 1, 3), dtype=int)
 
         if self.USE_STATIC_TASK_RESOURCE_DEMAND is True:
-            state[:-1, 1:] = self.STATIC_TASK_RESOURCE_DEMAND
+            self.TASK_RESOURCE_DEMAND = STATIC_TASK_RESOURCE_DEMAND_SAMPLE
         else:
-            if self.SAME_TASK_RESOURCE_DEMAND:
+            if self.USE_SAME_TASK_RESOURCE_DEMAND:
                 if self.TASK_RESOURCE_DEMAND is None:
                     self.TASK_RESOURCE_DEMAND = np.zeros(shape=(self.NUM_TASKS, 2))
                     for task_idx in range(self.NUM_TASKS):
@@ -84,8 +67,6 @@ class TaskAllocationEnv(gym.Env):
                             low=self.MIN_RESOURCE_DEMAND_AT_TASK, high=self.MAX_RESOURCE_DEMAND_AT_TASK, size=(2, )
                         )
                     self.TASK_RESOURCE_DEMAND = np.sort(self.TASK_RESOURCE_DEMAND, axis=0)
-
-                state[:-1, 1:] = self.TASK_RESOURCE_DEMAND
             else:
                 self.TASK_RESOURCE_DEMAND = np.zeros(shape=(self.NUM_TASKS, 2))
                 for task_idx in range(self.NUM_TASKS):
@@ -93,7 +74,8 @@ class TaskAllocationEnv(gym.Env):
                         low=self.MIN_RESOURCE_DEMAND_AT_TASK, high=self.MAX_RESOURCE_DEMAND_AT_TASK, size=(2, )
                     )
                 self.TASK_RESOURCE_DEMAND = np.sort(self.TASK_RESOURCE_DEMAND, axis=0)
-                state[:-1, 1:] = self.TASK_RESOURCE_DEMAND
+
+        state[:-1, 1:] = self.TASK_RESOURCE_DEMAND
 
         self.min_task_cpu_demand = state[:-1, 1].min()
         self.min_task_ram_demand = state[:-1, 2].min()
@@ -127,8 +109,6 @@ class TaskAllocationEnv(gym.Env):
         info = {}
         self.actions_selected.append(action_idx)
 
-        self.action_mask[action_idx] = 1.0
-
         cpu_step = self.internal_state[action_idx][1]
         ram_step = self.internal_state[action_idx][2]
 
@@ -140,6 +120,7 @@ class TaskAllocationEnv(gym.Env):
         terminated = False
         if self.internal_state[action_idx][0] == 1:
             terminated = True
+            self.action_mask[action_idx] = None
             info['DoneReasonType'] = DoneReasonType.TYPE_FAIL_1   ##### [TYPE 1] The Same Task Selected #####
 
         elif (self.cpu_allocated + cpu_step > self.CPU_RESOURCE_CAPACITY) or \
@@ -148,9 +129,9 @@ class TaskAllocationEnv(gym.Env):
             info['DoneReasonType'] = DoneReasonType.TYPE_FAIL_2   ##### [TYPE 2] Resource Limit Exceeded #####
 
         else:
-            self.internal_state[action_idx][0] = 1
-            self.internal_state[action_idx][1] = -1
-            self.internal_state[action_idx][2] = -1
+            self.internal_state[action_idx][0] = 1.0
+            self.internal_state[action_idx][1] = -1.0
+            self.internal_state[action_idx][2] = -1.0
 
             self.internal_state[-1][1] = self.internal_state[-1][1] - cpu_step
             self.internal_state[-1][2] = self.internal_state[-1][2] - ram_step
@@ -174,21 +155,22 @@ class TaskAllocationEnv(gym.Env):
                 terminated = True
                 info['DoneReasonType'] = DoneReasonType.TYPE_SUCCESS_3  ##### A Resource Used Up - [GOOD] #####
             else:
-                pass
+                self.action_mask[action_idx] = 1.0
         ###########################
         ### terminated 결정 - 종료 ###
         ###########################
 
         new_observation = self.get_observation_from_internal_state()
 
+        self.fill_info(info)
+
         if terminated:
+            info["ACTION_MASK"] = np.ones(shape=(self.NUM_TASKS,), dtype=float) * -1.0
             reward = self.get_reward(done_type=info['DoneReasonType'])
         else:
             reward = self.get_reward()
 
         truncated = None
-
-        self.fill_info(info)
 
         return new_observation, reward, terminated, truncated, info
 
@@ -216,4 +198,4 @@ class TaskAllocationEnv(gym.Env):
         info["CPU_ALLOCATED"] = self.cpu_allocated
         info["RAM_ALLOCATED"] = self.ram_allocated
         info["INTERNAL_STATE"] = self.internal_state
-        info["action_mask"] = self.action_mask
+        info["ACTION_MASK"] = self.action_mask

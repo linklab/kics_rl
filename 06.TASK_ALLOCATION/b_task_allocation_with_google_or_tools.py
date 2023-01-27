@@ -1,5 +1,6 @@
 import numpy as np
 from ortools.linear_solver import pywraplp
+from a_config import STATIC_TASK_RESOURCE_DEMAND_SAMPLE
 
 # Create the solver
 solver = pywraplp.Solver('simple_task_allocation', pywraplp.Solver.SAT_INTEGER_PROGRAMMING)
@@ -51,23 +52,12 @@ if __name__ == "__main__":
     #
     # for task_idx in range(num_tasks):
     #     task_demands[task_idx] = np.random.randint(
-    #         low=[1] * num_resources, high=[20] * num_resources, size=(num_resources, )
+    #         low=[1] * num_resources, high=[100] * num_resources, size=(num_resources, )
     #     )
 
-    task_demands = [
-        [6, 12],
-        [4, 17],
-        [8, 14],
-        [14, 7],
-        [14, 9],
-        [13, 12],
-        [12, 14],
-        [17, 10],
-        [12, 15],
-        [13, 14],
-    ]
+    task_demands = STATIC_TASK_RESOURCE_DEMAND_SAMPLE
 
-    resource_capacity = [100] * num_resources
+    resource_capacity = [num_tasks * 50] * num_resources
 
     utilization = solve_by_or_tool(
         num_tasks=num_tasks, num_resources=2, task_demands=task_demands, resource_capacity=resource_capacity
