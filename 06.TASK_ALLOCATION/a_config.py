@@ -13,7 +13,7 @@ STATIC_TASK_RESOURCE_DEMAND_SAMPLE = [
     [84, 98],
 ]
 
-NUM_TASKS = 3
+NUM_TASKS = 10
 
 env_config = {
     "num_tasks": NUM_TASKS,  # 대기하는 태스크 개수
@@ -32,7 +32,7 @@ if env_config["use_static_task_resource_demand"]:
 
 dqn_config = {
     "max_num_episodes": 50_000,  # 훈련을 위한 최대 에피소드 횟수
-    "batch_size": 4,  # 훈련시 배치에서 한번에 가져오는 랜덤 배치 사이즈
+    "batch_size": 128,  # 훈련시 배치에서 한번에 가져오는 랜덤 배치 사이즈
     "learning_rate": 0.0001,  # 학습율
     "gamma": 0.99,  # 감가율
     "use_action_mask": True,  # action mask 사용 유무
@@ -44,6 +44,6 @@ dqn_config = {
     "print_episode_interval": 10,  # Episode 통계 출력에 관한 에피소드 간격
     "train_num_episodes_before_next_validation": 200,  # 검증 사이 마다 각 훈련 episode 간격
     "validation_num_episodes": 30,  # 검증에 수행하는 에피소드 횟수
-    "use_early_stop_with_best_validation_model": True,     # early stop 사용 유무
+    "use_early_stop_with_best_validation_model": False,     # early stop 사용 유무
     "early_stop_patience": env_config["num_tasks"] * 100,  # episode_reward가 개선될 때까지 기다리는 기간
 }

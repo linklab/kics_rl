@@ -243,14 +243,14 @@ class DQN:
 
             max_q_prime = q_prime_out.max(dim=-1, keepdim=True).values
             max_q_prime[dones] = 0.0
+
             targets = rewards + self.gamma * max_q_prime
 
         loss = F.mse_loss(targets.detach(), q_values, reduce=True)
-
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
-
+        print()
         # sync
         if self.time_steps % self.target_sync_step_interval == 0:
             self.target_q.load_state_dict(self.q.state_dict())
@@ -291,7 +291,7 @@ def main():
     )
     print("*" * 200)
 
-    use_wandb = True
+    use_wandb = False
     dqn = DQN(
         env=env, validation_env=validation_env, config=dqn_config, use_wandb=use_wandb
     )
