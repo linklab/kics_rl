@@ -9,31 +9,6 @@ import enum
 
 ENV_NAME = "Task_Allocation"
 
-# env_config = {
-#     "num_tasks": 10,  # 대기하는 태스크 개수
-#     "use_static_task_resource_demand": True,  # 항상 미리 정해 놓은 태스크 자원 요구량 사용 유무
-#     "same_task_resource_demand": False,  # 각 에피소드 초기에 동일한 태스크 자원 요구량 사용 유무
-#     "initial_resources_capacity": [100, 100],  # 초기 자원 용량
-#     "low_demand_resource_at_task": [1, 1],  # 태스크의 각 자원 최소 요구량
-#     "high_demand_resource_at_task": [20, 20]  # 태스크의 각 자원 최대 요구량
-# }
-
-env_config = {
-    "num_tasks": 3,  # 대기하는 태스크 개수
-    "use_static_task_resource_demand": False,  # 항상 미리 정해 놓은 태스크 자원 요구량 사용 유무
-    "same_task_resource_demand": False,  # 각 에피소드 초기에 동일한 태스크 자원 요구량 사용 유무
-    "initial_resources_capacity": [30, 30],  # 초기 자원 용량
-    "low_demand_resource_at_task": [1, 1],  # 태스크의 각 자원 최소 요구량
-    "high_demand_resource_at_task": [20, 20]  # 태스크의 각 자원 최대 요구량
-}
-
-if env_config["same_task_resource_demand"]:
-    assert env_config["use_static_task_resource_demand"] is False
-
-if env_config["use_static_task_resource_demand"]:
-    assert env_config["num_tasks"] == 10
-
-
 class DoneReasonType(enum.Enum):
     TYPE_FAIL_1 = "The Same Task Selected"
     TYPE_FAIL_2 = "Resource Limit Exceeded"
@@ -43,7 +18,7 @@ class DoneReasonType(enum.Enum):
 
 
 class TaskAllocationEnv(gym.Env):
-    def __init__(self):
+    def __init__(self, env_config):
         super(TaskAllocationEnv, self).__init__()
 
         self.internal_state = None
@@ -143,9 +118,8 @@ class TaskAllocationEnv(gym.Env):
         self.action_mask = np.zeros(shape=(self.NUM_TASKS,), dtype=float)
 
         observation = self.get_observation_from_internal_state()
-        info = {
-            "action_mask": self.action_mask
-        }
+        info = {}
+        self.fill_info(info)
 
         return observation, info
 
@@ -210,22 +184,11 @@ class TaskAllocationEnv(gym.Env):
         if terminated:
             reward = self.get_reward(done_type=info['DoneReasonType'])
         else:
-            reward = self.get_reward(done_type=None)
-
-        info["TOTAL_RESOURCE_CAPACITY"] = self.TOTAL_RESOURCE_CAPACITY
-        info["CPU_CAPACITY"] = self.CPU_RESOURCE_CAPACITY
-        info["RAM_CAPACITY"] = self.RAM_RESOURCE_CAPACITY
-        info["TOTAL_RESOURCE_DEMAND"] = self.total_resource_demand
-        info["TOTAL_CPU_DEMAND"] = self.total_cpu_demand
-        info["TOTAL_RAM_DEMAND"] = self.total_ram_demand
-        info["ACTIONS_SELECTED"] = self.actions_selected
-        info["TOTAL_ALLOCATED"] = self.total_allocated
-        info["CPU_ALLOCATED"] = self.cpu_allocated
-        info["RAM_ALLOCATED"] = self.ram_allocated
-        info["INTERNAL_STATE"] = self.internal_state
-        info["action_mask"] = self.action_mask
+            reward = self.get_reward()
 
         truncated = None
+
+        self.fill_info(info)
 
         return new_observation, reward, terminated, truncated, info
 
@@ -240,3 +203,17 @@ class TaskAllocationEnv(gym.Env):
         reward = self.resources_step / self.TOTAL_RESOURCE_CAPACITY
 
         return reward + fail_reward
+
+    def fill_info(self, info):
+        info["TOTAL_RESOURCE_CAPACITY"] = self.TOTAL_RESOURCE_CAPACITY
+        info["CPU_CAPACITY"] = self.CPU_RESOURCE_CAPACITY
+        info["RAM_CAPACITY"] = self.RAM_RESOURCE_CAPACITY
+        info["TOTAL_RESOURCE_DEMAND"] = self.total_resource_demand
+        info["TOTAL_CPU_DEMAND"] = self.total_cpu_demand
+        info["TOTAL_RAM_DEMAND"] = self.total_ram_demand
+        info["ACTIONS_SELECTED"] = self.actions_selected
+        info["TOTAL_ALLOCATED"] = self.total_allocated
+        info["CPU_ALLOCATED"] = self.cpu_allocated
+        info["RAM_ALLOCATED"] = self.ram_allocated
+        info["INTERNAL_STATE"] = self.internal_state
+        info["action_mask"] = self.action_mask

@@ -8,9 +8,11 @@ import numpy as np
 np.set_printoptions(edgeitems=3, linewidth=100000, formatter=dict(float=lambda x: "%5.3f" % x))
 
 import torch
-from b_task_allocation_env import TaskAllocationEnv, ENV_NAME
-from d_qnet import QNet, MODEL_DIR
-from a_task_allocation_with_google_or_tools import solve_by_or_tool
+from a_config import env_config, dqn_config
+from c_task_allocation_env import TaskAllocationEnv, ENV_NAME
+from e_qnet import QNet, MODEL_DIR
+from b_task_allocation_with_google_or_tools import solve_by_or_tool
+
 
 def play(env, q, num_episodes):
     rl_episode_reward_lst = np.zeros(shape=(num_episodes,), dtype=float)
@@ -24,6 +26,7 @@ def play(env, q, num_episodes):
         episode_reward = 0  # cumulative_reward
         episode_steps = 0
         done = False
+        print("[EPISODE: {0}]\nRESET, Info: {1}".format(i, info))
 
         while not done:
             episode_steps += 1
@@ -38,7 +41,12 @@ def play(env, q, num_episodes):
         rl_duration = datetime.now() - rl_start_time
         rl_episode_reward_lst[i] = episode_reward
         rl_duration_lst.append(rl_duration)
+        print("*** RL RESULT ***")
+        print("EPISODE_STEPS: {1:3d}, EPISODE REWARD: {2:5.3f}, INFO:{3}".format(
+            i, episode_steps, episode_reward, info
+        ))
 
+        print("*** OR TOOL RESULT ***")
         or_tool_start_time = datetime.now()
         or_tool_solution = solve_by_or_tool(
             num_tasks=env.NUM_TASKS,
@@ -50,15 +58,13 @@ def play(env, q, num_episodes):
         or_tool_solution_lst[i] = or_tool_solution
         or_tool_duration_lst.append(or_tool_duration)
 
-        print("[EPISODE: {0}] EPISODE_STEPS: {1:3d}, EPISODE REWARD: {2:5.3f}, INFO:{3}".format(
-            i, episode_steps, episode_reward, info
+        print("*** RL VS. OR_TOOL COMPARISON ***")
+        print("RL_EPISODE_REWARD (UTILIZATION) | OR_TOOL_SOLUTION (UTILIZATION) ---> {0:>6.3f} |{1:>6.3f}".format(
+            episode_reward, or_tool_solution
         ))
 
-        print("*** RL_EPISODE_REWARD(STEPS: {1:3d})|OR_TOOL_SOLUTION: {2:>6.3f}|{3:>6.3f}, "
-              "RL_DURATION|OR_TOOL_DURATION: {4}|{5}".format(
-            i, episode_steps, episode_reward, or_tool_solution,
-            rl_duration,
-            or_tool_duration,
+        print("RL_DURATION | OR_TOOL_DURATION ---> {0} | {1}".format(
+            rl_duration, or_tool_duration,
         ))
 
         print()
@@ -74,15 +80,14 @@ def play(env, q, num_episodes):
 
 
 def main_play(num_episodes, env_name):
-    env = TaskAllocationEnv()
+    env = TaskAllocationEnv(env_config=env_config)
 
-    q = QNet(n_features=(env.NUM_TASKS + 1) * 3, n_actions=env.NUM_TASKS, use_action_mask=False)
+    q = QNet(n_features=(env.NUM_TASKS + 1) * 3, n_actions=env.NUM_TASKS, use_action_mask=dqn_config["use_action_mask"])
     model_params = torch.load(os.path.join(MODEL_DIR, "dqn_{0}_{1}_latest.pth".format(env.NUM_TASKS, env_name)))
     q.load_state_dict(model_params)
 
-    results = play(
-        env, q, num_episodes=num_episodes
-    )
+    results = play(env, q, num_episodes=num_episodes)
+
     print("[    DQN]   Episode Rewards: {0}, Average: {1:.3f}, Duration: {2}".format(
         results["rl_episode_reward_lst"], results["rl_episode_reward_avg"], results["rl_duration_avg"]
     ))
