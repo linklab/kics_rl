@@ -72,10 +72,10 @@ def play(env, q, num_episodes):
     return {
         "rl_episode_reward_lst": rl_episode_reward_lst,
         "rl_episode_reward_avg": np.average(rl_episode_reward_lst),
-        "rl_duration_avg": sum(rl_duration_lst[1:], timedelta(0)) / num_episodes,
+        "rl_duration_avg": sum(rl_duration_lst[1:], timedelta(0)) / (num_episodes -1),
         "or_tool_solution_lst": or_tool_solution_lst,
         "or_tool_solutions_avg": np.average(or_tool_solution_lst),
-        "or_tool_duration_avg": sum(or_tool_duration_lst[1:], timedelta(0)) / num_episodes
+        "or_tool_duration_avg": sum(or_tool_duration_lst[1:], timedelta(0)) / (num_episodes - 1)
     }
 
 

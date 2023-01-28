@@ -36,7 +36,7 @@ def main(num_episodes):
     results = {
         "or_tool_solution_lst": or_tool_solution_lst,
         "or_tool_solutions_avg": np.average(or_tool_solution_lst),
-        "or_tool_duration_avg": sum(or_tool_duration_lst[1:], timedelta(0)) / num_episodes
+        "or_tool_duration_avg": sum(or_tool_duration_lst[1:], timedelta(0)) / (num_episodes - 1)
     }
 
     print("[OR TOOL] OR Tool Solutions: {0}, Average: {1:.3f}, Duration: {2}".format(
