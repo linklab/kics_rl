@@ -1,6 +1,6 @@
 # https://gymnasium.farama.org/environments/classic_control/cart_pole/
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
@@ -33,10 +33,20 @@ def main(num_episodes):
         or_tool_duration_lst.append(or_tool_duration)
         print()
 
+    results = {
+        "or_tool_solution_lst": or_tool_solution_lst,
+        "or_tool_solutions_avg": np.average(or_tool_solution_lst),
+        "or_tool_duration_avg": sum(or_tool_duration_lst[1:], timedelta(0)) / num_episodes
+    }
+
+    print("[OR TOOL] OR Tool Solutions: {0}, Average: {1:.3f}, Duration: {2}".format(
+        results["or_tool_solution_lst"], results["or_tool_solutions_avg"], results["or_tool_duration_avg"]
+    ))
+
     env.close()
 
 
 if __name__ == "__main__":
     NUM_EPISODES = 10
 
-    main(num_episodes=NUM_EPISODES, env_name=ENV_NAME)
+    main(num_episodes=NUM_EPISODES)
