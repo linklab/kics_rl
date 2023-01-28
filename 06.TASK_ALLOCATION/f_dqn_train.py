@@ -172,8 +172,8 @@ class DQN:
                 observation = next_observation
                 done = terminated or truncated
 
-                if self.time_steps > self.batch_size:
-                    loss = self.train()
+            if self.time_steps > self.batch_size:
+                loss = self.train()
 
             total_training_time = time.time() - total_train_start_time
             total_training_time = time.strftime('%H:%M:%S', time.gmtime(total_training_time))
