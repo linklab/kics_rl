@@ -34,7 +34,7 @@ if env_config["use_static_task_resource_demand"]:
     assert env_config["num_tasks"] == 10
 
 dqn_config = {
-    "max_num_episodes": 10_000 * NUM_TASKS,  # 훈련을 위한 최대 에피소드 횟수
+    "max_num_episodes": 1_000 * NUM_TASKS ** 2,  # 훈련을 위한 최대 에피소드 횟수
     "batch_size": 128,  # 훈련시 배치에서 한번에 가져오는 랜덤 배치 사이즈
     "learning_rate": 0.0001,  # 학습율
     "gamma": 0.99,  # 감가율
