@@ -109,6 +109,7 @@ class DQN:
         self.learning_rate = config["learning_rate"]
         self.gamma = config["gamma"]
         self.use_action_mask = config["use_action_mask"]
+        self.steps_between_train = config["steps_between_train"]
         self.target_sync_step_interval = config["target_sync_step_interval"]
         self.replay_buffer_size = config["replay_buffer_size"]
         self.epsilon_start = config["epsilon_start"]
@@ -136,6 +137,7 @@ class DQN:
         self.replay_buffer = ReplayBuffer(self.replay_buffer_size)
 
         self.time_steps = 0
+        self.total_time_steps = 0
         self.training_time_steps = 0
 
         self.early_stop_model_saver = EarlyStopModelSaver(
@@ -170,6 +172,7 @@ class DQN:
 
             while not done:
                 self.time_steps += 1
+                self.total_time_steps += 1
 
                 action = self.q.get_action(observation, epsilon, action_mask=info["ACTION_MASK"])
 
@@ -183,8 +186,8 @@ class DQN:
                 observation = next_observation
                 done = terminated or truncated
 
-            if self.time_steps > self.batch_size:
-                loss = self.train()
+                if self.total_time_steps % self.steps_between_train == 0 and self.time_steps > self.batch_size:
+                    loss = self.train()
 
             total_training_time = time.time() - total_train_start_time
             total_training_time = time.strftime('%H:%M:%S', time.gmtime(total_training_time))
