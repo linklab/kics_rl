@@ -77,7 +77,7 @@ class EarlyStopModelSaver:
 
 
 class DQN:
-    def __init__(self, env, validation_env, config, use_wandb):
+    def __init__(self, env, validation_env, config, env_config, use_wandb):
         self.env = env
         self.validation_env = validation_env
         self.use_wandb = use_wandb
@@ -87,10 +87,21 @@ class DQN:
         self.current_time = datetime.now().astimezone().strftime('%Y-%m-%d_%H-%M-%S')
 
         if self.use_wandb:
+            project_name = "DQN_{0}_{1}_WITH_{2}".format(NUM_TASKS, self.env_name, config["max_num_episodes"])
+            if env_config["use_static_task_resource_demand"] is False and \
+                    env_config["use_same_task_resource_demand"] is False:
+                project_name += "_RANDOM_INSTANCES"
+            elif env_config["use_static_task_resource_demand"] is True:
+                project_name += "_STATIC_INSTANCES"
+            elif env_config["use_same_task_resource_demand"] is True:
+                project_name += "_SAME_INSTANCES"
+            else:
+                raise ValueError()
+
             self.wandb = wandb.init(
-                project="DQN_{0}".format(self.env_name),
-                name=self.current_time,
-                config=config
+                project=project_name,
+                name="{0}_{1}".format("AM" if config["use_action_mask"] else "NM", self.current_time),
+                config=config | env_config
             )
 
         self.max_num_episodes = config["max_num_episodes"]
@@ -204,8 +215,8 @@ class DQN:
 
             if self.use_wandb:
                 self.wandb.log({
-                    "[VALIDATE] Mean Episode Reward": validation_episode_reward_avg,
-                    "[TRAIN] Episode Reward": episode_reward,
+                    "[VALIDATE] Mean Episode Reward (Utilization)": validation_episode_reward_avg,
+                    "[TRAIN] Episode Reward (Utilization)": episode_reward,
                     "Loss": loss if loss != 0.0 else 0.0,
                     "Epsilon": epsilon,
                     "Episode": n_episode,
@@ -292,7 +303,7 @@ def main():
 
     use_wandb = True
     dqn = DQN(
-        env=env, validation_env=validation_env, config=dqn_config, use_wandb=use_wandb
+        env=env, validation_env=validation_env, config=dqn_config, env_config=env_config, use_wandb=use_wandb
     )
     dqn.train_loop()
 

@@ -79,7 +79,7 @@ def play(env, q, num_episodes):
     }
 
 
-def main_play(num_episodes, env_name):
+def main(num_episodes, env_name):
     env = TaskAllocationEnv(env_config=env_config)
 
     print("USE_ACTION_MASK: {0}".format(dqn_config["use_action_mask"]))
@@ -107,4 +107,4 @@ def main_play(num_episodes, env_name):
 if __name__ == "__main__":
     NUM_EPISODES = 10
 
-    main_play(num_episodes=NUM_EPISODES, env_name=ENV_NAME)
+    main(num_episodes=NUM_EPISODES, env_name=ENV_NAME)
