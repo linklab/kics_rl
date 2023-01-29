@@ -299,10 +299,10 @@ def main():
     env = TaskAllocationEnv(env_config=env_config)
     validation_env = deepcopy(env)
 
-    print("USE_ACTION_MASK: {0}".format(dqn_config["use_action_mask"]))
-    print("USE_EARLY_STOP_WITH_BEST_VALIDATION_MODEL: {0}".format(
-        dqn_config["use_early_stop_with_best_validation_model"])
-    )
+    print("{0:>50}: {1}".format("USE_ACTION_MASK", dqn_config["use_action_mask"]))
+    print("{0:>50}: {1}".format(
+        "USE_EARLY_STOP_WITH_BEST_VALIDATION_MODEL", dqn_config["use_early_stop_with_best_validation_model"]
+    ))
     print("*" * 200)
 
     use_wandb = True

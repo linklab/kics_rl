@@ -82,10 +82,10 @@ def play(env, q, num_episodes):
 def main(num_episodes, env_name):
     env = TaskAllocationEnv(env_config=env_config)
 
-    print("USE_ACTION_MASK: {0}".format(dqn_config["use_action_mask"]))
-    print("USE_EARLY_STOP_WITH_BEST_VALIDATION_MODEL: {0}".format(
-        dqn_config["use_early_stop_with_best_validation_model"])
-    )
+    print("{0:>50}: {1}".format("USE_ACTION_MASK", dqn_config["use_action_mask"]))
+    print("{0:>50}: {1}".format(
+        "USE_EARLY_STOP_WITH_BEST_VALIDATION_MODEL", dqn_config["use_early_stop_with_best_validation_model"]
+    ))
     print("*" * 200)
 
     q = QNet(n_features=(NUM_TASKS + 1) * 3, n_actions=NUM_TASKS, use_action_mask=dqn_config["use_action_mask"])

@@ -49,12 +49,25 @@ class TaskAllocationEnv(gym.Env):
 
         self.TASK_RESOURCE_DEMAND = None
 
-        print("NUM_TASKS:", self.NUM_TASKS)
-        print("USE_STATIC_TASK_RESOURCE_DEMAND: {0}".format(env_config["use_static_task_resource_demand"]))
-        print("USE_SAME_TASK_RESOURCE_DEMAND: {0}".format(env_config["use_same_task_resource_demand"]))
+        print("{0:>50}: {1}".format("NUM_TASKS", self.NUM_TASKS))
+        print("{0:>50}: {1}".format(
+            "LOW_DEMAND_RESOURCE_AT_TASK", env_config["low_demand_resource_at_task"]
+        ))
+        print("{0:>50}: {1}".format(
+            "HIGH_DEMAND_RESOURCE_AT_TASK", env_config["high_demand_resource_at_task"]
+        ))
+        print("{0:>50}: {1}".format(
+            "INITIAL_RESOURCES_CAPACITY", env_config["initial_resources_capacity"]
+        ))
+        print("{0:>50}: {1}".format(
+            "USE_STATIC_TASK_RESOURCE_DEMAND", env_config["use_static_task_resource_demand"]
+        ))
+        print("{0:>50}: {1}".format(
+            "USE_SAME_TASK_RESOURCE_DEMAND", env_config["use_same_task_resource_demand"]
+        ))
 
     def get_initial_internal_state(self):
-        state = np.zeros(shape=(self.NUM_TASKS + 1, 3), dtype=int)
+        state = np.zeros(shape=(self.NUM_TASKS + 1, 3), dtype=float)
 
         if self.USE_STATIC_TASK_RESOURCE_DEMAND is True:
             self.TASK_RESOURCE_DEMAND = STATIC_TASK_RESOURCE_DEMAND_SAMPLE
@@ -87,8 +100,9 @@ class TaskAllocationEnv(gym.Env):
 
         return state
 
-    def get_observation_from_internal_state(self):
-        observation = self.internal_state.flatten()
+    @staticmethod
+    def get_observation_from_internal_state(internal_state):
+        observation = internal_state.flatten()
         return observation
 
     def reset(self, **kwargs):
@@ -99,7 +113,7 @@ class TaskAllocationEnv(gym.Env):
         self.ram_allocated = 0
         self.action_mask = np.zeros(shape=(self.NUM_TASKS,), dtype=float)
 
-        observation = self.get_observation_from_internal_state()
+        observation = self.get_observation_from_internal_state(self.internal_state)
         info = {}
         self.fill_info(info)
 
@@ -160,7 +174,7 @@ class TaskAllocationEnv(gym.Env):
         ### terminated 결정 - 종료 ###
         ###########################
 
-        new_observation = self.get_observation_from_internal_state()
+        new_observation = self.get_observation_from_internal_state(self.internal_state)
 
         self.fill_info(info)
 

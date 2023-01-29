@@ -13,15 +13,15 @@ STATIC_TASK_RESOURCE_DEMAND_SAMPLE = [
     [84, 98],
 ]
 
-NUM_TASKS = 20
+NUM_TASKS = 5
 
 env_config = {
     "num_tasks": NUM_TASKS,  # 대기하는 태스크 개수
-    "use_static_task_resource_demand": False,  # 항상 미리 정해 놓은 태스크 자원 요구량 사용 유무
-    "use_same_task_resource_demand": False,  # 각 에피소드 초기에 동일한 태스크 자원 요구량 사용 유무
-    "initial_resources_capacity": [NUM_TASKS * 50, NUM_TASKS * 50],  # 초기 자원 용량
-    "low_demand_resource_at_task": [1, 1],  # 태스크의 각 자원 최소 요구량
-    "high_demand_resource_at_task": [100, 100]  # 태스크의 각 자원 최대 요구량
+    "use_static_task_resource_demand": False,                           # 항상 미리 정해 놓은 태스크 자원 요구량 사용 유무
+    "use_same_task_resource_demand": False,                             # 각 에피소드 초기에 동일한 태스크 자원 요구량 사용 유무
+    "low_demand_resource_at_task": [1, 1],                              # 태스크의 각 자원 최소 요구량
+    "high_demand_resource_at_task": [100, 100],                         # 태스크의 각 자원 최대 요구량
+    "initial_resources_capacity": [NUM_TASKS * 50, NUM_TASKS * 50],     # 초기 자원 용량
 }
 
 if env_config["use_same_task_resource_demand"]:
@@ -38,7 +38,7 @@ dqn_config = {
     "batch_size": 256,                                      # 훈련시 배치에서 한번에 가져오는 랜덤 배치 사이즈
     "learning_rate": 0.001,                                 # 학습율
     "gamma": 0.99,                                          # 감가율
-    "use_action_mask": True,                                # action mask 사용 유무
+    "use_action_mask": False,                                # action mask 사용 유무
     "steps_between_train": 4,                               # 훈련 사이의 환경 스텝 수
     "target_sync_step_interval": 500,                       # 기존 Q 모델을 타깃 Q 모델로 동기화시키는 step 간격
     "replay_buffer_size": 2_000 * NUM_TASKS ** 2,           # 리플레이 버퍼 사이즈
