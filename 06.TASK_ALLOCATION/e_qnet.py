@@ -28,15 +28,17 @@ class QNet(nn.Module):
         self.n_actions = n_actions
         self.use_action_mask = use_action_mask
         self.fc1 = nn.Linear(n_features, 128)  # fully connected
+        self.norm1 = nn.LayerNorm(normalized_shape=128)
         self.fc2 = nn.Linear(128, 128)
+        self.norm2 = nn.LayerNorm(normalized_shape=128)
         self.fc3 = nn.Linear(128, n_actions)
         self.to(DEVICE)
 
     def forward(self, x):
         if isinstance(x, np.ndarray):
             x = torch.tensor(x, dtype=torch.float32, device=DEVICE)
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
+        x = F.leaky_relu(self.norm1(self.fc1(x)))
+        x = F.leaky_relu(self.norm2(self.fc2(x)))
         x = self.fc3(x)
         return x
 
