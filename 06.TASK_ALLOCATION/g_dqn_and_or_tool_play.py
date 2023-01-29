@@ -10,7 +10,7 @@ np.set_printoptions(edgeitems=3, linewidth=100000, formatter=dict(float=lambda x
 import torch
 from a_config import env_config, dqn_config, ENV_NAME, NUM_TASKS
 from c_task_allocation_env import TaskAllocationEnv
-from e_qnet import QNet, MODEL_DIR
+from e_qnet import QNet, MODEL_DIR, CnnQNet
 from b_task_allocation_with_google_or_tools import solve_by_or_tool
 
 
@@ -80,16 +80,28 @@ def play(env, q, num_episodes):
 
 
 def main(num_episodes, env_name):
-    env = TaskAllocationEnv(env_config=env_config)
+    env = TaskAllocationEnv(env_config=env_config, use_cnn=dqn_config["use_cnn"])
 
     print("{0:>50}: {1}".format("USE_ACTION_MASK", dqn_config["use_action_mask"]))
     print("{0:>50}: {1}".format(
         "USE_EARLY_STOP_WITH_BEST_VALIDATION_MODEL", dqn_config["use_early_stop_with_best_validation_model"]
     ))
-    print("*" * 200)
+    print("*" * 100)
 
-    q = QNet(n_features=(NUM_TASKS + 1) * 3, n_actions=NUM_TASKS, use_action_mask=dqn_config["use_action_mask"])
-    model_params = torch.load(os.path.join(MODEL_DIR, "dqn_{0}_{1}_latest.pth".format(NUM_TASKS, env_name)))
+    if dqn_config["use_cnn"]:
+        q = CnnQNet(
+            height=NUM_TASKS + 1, width=3, n_actions=NUM_TASKS, use_action_mask=dqn_config["use_action_mask"]
+        )
+    else:
+        q = QNet(
+            n_features=(NUM_TASKS + 1) * 3, n_actions=NUM_TASKS, use_action_mask=dqn_config["use_action_mask"]
+        )
+
+    model_params = torch.load(
+        os.path.join(MODEL_DIR, "dqn_{0}_{1}_{2}_latest.pth".format(
+            NUM_TASKS, env_name, "CNN" if dqn_config["use_cnn"] is True else "FC"
+        ))
+    )
     q.load_state_dict(model_params)
 
     results = play(env, q, num_episodes=num_episodes)
