@@ -36,6 +36,7 @@ class DQN:
         self.batch_size = config["batch_size"]
         self.learning_rate = config["learning_rate"]
         self.gamma = config["gamma"]
+        self.steps_between_train = config["steps_between_train"]
         self.target_sync_step_interval = config["target_sync_step_interval"]
         self.replay_buffer_size = config["replay_buffer_size"]
         self.epsilon_start = config["epsilon_start"]
@@ -59,6 +60,7 @@ class DQN:
         self.replay_buffer = ReplayBuffer(self.replay_buffer_size)
 
         self.time_steps = 0
+        self.total_time_steps = 0
         self.training_time_steps = 0
 
     def epsilon_scheduled(self, current_episode):
@@ -90,6 +92,7 @@ class DQN:
 
             while not done:
                 self.time_steps += 1
+                self.total_time_steps += 1
 
                 action = self.q.get_action(observation, epsilon)
 
@@ -103,7 +106,7 @@ class DQN:
                 observation = next_observation
                 done = terminated or truncated
 
-                if self.time_steps > self.batch_size:
+                if self.total_time_steps % self.steps_between_train == 0 and self.time_steps > self.batch_size:
                     loss = self.train()
 
             total_training_time = time.time() - total_train_start_time
@@ -250,6 +253,7 @@ def main():
         "batch_size": 32,                           # 훈련시 배치에서 한번에 가져오는 랜덤 배치 사이즈
         "learning_rate": 0.0001,                    # 학습율
         "gamma": 0.99,                              # 감가율
+        "steps_between_train": 1,                   # 훈련 사이의 환경 스텝 수
         "target_sync_step_interval": 500,           # 기존 Q 모델을 타깃 Q 모델로 동기화시키는 step 간격
         "replay_buffer_size": 30_000,               # 리플레이 버퍼 사이즈
         "epsilon_start": 0.95,                      # Epsilon 초기 값
