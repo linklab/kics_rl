@@ -13,7 +13,7 @@ STATIC_TASK_RESOURCE_DEMAND_SAMPLE = [
     [84, 98],
 ]
 
-NUM_TASKS = 5
+NUM_TASKS = 10
 
 env_config = {
     "num_tasks": NUM_TASKS,  # 대기하는 태스크 개수
@@ -38,7 +38,7 @@ dqn_config = {
     "batch_size": 256,                                      # 훈련시 배치에서 한번에 가져오는 랜덤 배치 사이즈
     "learning_rate": 0.001,                                 # 학습율
     "gamma": 0.99,                                          # 감가율
-    "use_action_mask": False,                                # action mask 사용 유무
+    "use_action_mask": True,                                # action mask 사용 유무
     "steps_between_train": 4,                               # 훈련 사이의 환경 스텝 수
     "target_sync_step_interval": 500,                       # 기존 Q 모델을 타깃 Q 모델로 동기화시키는 step 간격
     "replay_buffer_size": 2_000 * NUM_TASKS ** 2,           # 리플레이 버퍼 사이즈
