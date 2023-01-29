@@ -190,7 +190,7 @@ class DQN:
                     loss = self.train()
 
             total_training_time = time.time() - total_train_start_time
-            total_training_time = time.strftime('%H:%M:%S', time.gmtime(total_training_time))
+            total_training_time_str = time.strftime('%H:%M:%S', time.gmtime(total_training_time))
 
             if n_episode % self.print_episode_interval == 0:
                 print(
@@ -200,7 +200,7 @@ class DQN:
                     "Loss: {:6.3f},".format(loss),
                     "Epsilon: {:4.2f},".format(epsilon),
                     "Training Steps: {:>5,},".format(self.training_time_steps),
-                    "Elapsed Time: {}".format(total_training_time)
+                    "Elapsed Time: {}".format(total_training_time_str)
                 )
 
             if n_episode % self.train_num_episodes_before_next_validation == 0:
@@ -224,7 +224,8 @@ class DQN:
                     "Epsilon": epsilon,
                     "Episode": n_episode,
                     "Replay buffer": self.replay_buffer.size(),
-                    "Training Steps": self.training_time_steps
+                    "Training Steps": self.training_time_steps,
+                    "Episodes per second": n_episode / total_training_time
                 })
 
             if is_terminated:
@@ -235,8 +236,8 @@ class DQN:
                 validation_episode_reward_avg, NUM_TASKS, ENV_NAME, self.max_num_episodes, self.current_time, self.q
             )
         total_training_time = time.time() - total_train_start_time
-        total_training_time = time.strftime('%H:%M:%S', time.gmtime(total_training_time))
-        print("Total Training End : {}".format(total_training_time))
+        total_training_time_str = time.strftime('%H:%M:%S', time.gmtime(total_training_time))
+        print("Total Training End : {}".format(total_training_time_str))
         self.wandb.finish()
 
     def train(self):

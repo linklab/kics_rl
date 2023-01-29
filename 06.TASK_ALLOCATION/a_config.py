@@ -35,7 +35,7 @@ if env_config["use_static_task_resource_demand"]:
 
 dqn_config = {
     "max_num_episodes": 2_000 * NUM_TASKS ** 2,             # 훈련을 위한 최대 에피소드 횟수
-    "batch_size": 128,                                      # 훈련시 배치에서 한번에 가져오는 랜덤 배치 사이즈
+    "batch_size": 256,                                      # 훈련시 배치에서 한번에 가져오는 랜덤 배치 사이즈
     "learning_rate": 0.001,                                 # 학습율
     "gamma": 0.99,                                          # 감가율
     "use_action_mask": True,                                # action mask 사용 유무
