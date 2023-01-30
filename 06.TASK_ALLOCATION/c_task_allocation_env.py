@@ -15,7 +15,7 @@ class DoneReasonType(enum.Enum):
 
 
 class TaskAllocationEnv(gym.Env):
-    def __init__(self, env_config, use_cnn):
+    def __init__(self, env_config):
         super(TaskAllocationEnv, self).__init__()
 
         self.internal_state = None
@@ -33,8 +33,6 @@ class TaskAllocationEnv(gym.Env):
         self.total_cpu_demand = None
         self.total_ram_demand = None
         self.total_resource_demand = None
-
-        self.use_cnn = use_cnn
 
         self.action_mask = None
 
@@ -115,10 +113,7 @@ class TaskAllocationEnv(gym.Env):
         self.ram_allocated = 0
         self.action_mask = np.zeros(shape=(self.NUM_TASKS,), dtype=float)
 
-        if self.use_cnn:
-            observation = np.expand_dims(self.internal_state, axis=0)
-        else:
-            observation = self.internal_state.flatten()
+        observation = self.internal_state.flatten()
 
         info = {}
         self.fill_info(info)
@@ -180,10 +175,7 @@ class TaskAllocationEnv(gym.Env):
         ### terminated 결정 - 종료 ###
         ###########################
 
-        if self.use_cnn:
-            next_observation = np.expand_dims(self.internal_state, axis=0)
-        else:
-            next_observation = self.internal_state.flatten()
+        next_observation = self.internal_state.flatten()
 
         self.fill_info(info)
 

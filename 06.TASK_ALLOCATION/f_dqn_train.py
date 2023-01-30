@@ -17,7 +17,7 @@ from shutil import copyfile
 
 from a_config import env_config, dqn_config, ENV_NAME, NUM_TASKS
 from c_task_allocation_env import TaskAllocationEnv
-from e_qnet import QNet, CnnQNet, ReplayBuffer, Transition, MODEL_DIR
+from e_qnet import QNet, ReplayBuffer, Transition, MODEL_DIR
 
 
 class EarlyStopModelSaver:
@@ -59,17 +59,14 @@ class EarlyStopModelSaver:
         return early_stop
 
     def model_save(self, validation_episode_reward_avg, num_tasks, env_name, n_episode, current_time, q):
-        filename = "dqn_{0}_{1}_{2}_{3}_{4:5.3f}_{5}.pth".format(
+        filename = "dqn_{0}_{1}_{2}_{3:5.3f}_{4}.pth".format(
             num_tasks, env_name,
-            "CNN" if dqn_config["use_cnn"] is True else "FC",
             current_time, validation_episode_reward_avg, n_episode
         )
         torch.save(q.state_dict(), os.path.join(MODEL_DIR, filename))
         print("*** MODEL SAVED TO {0}".format(os.path.join(MODEL_DIR, filename)))
 
-        latest_file_name = "dqn_{0}_{1}_{2}_latest.pth".format(
-            NUM_TASKS, env_name, "CNN" if dqn_config["use_cnn"] is True else "FC"
-        )
+        latest_file_name = "dqn_{0}_{1}_latest.pth".format(NUM_TASKS, env_name)
         copyfile(
             src=os.path.join(MODEL_DIR, filename),
             dst=os.path.join(MODEL_DIR, latest_file_name)
@@ -103,15 +100,12 @@ class DQN:
 
             self.wandb = wandb.init(
                 project=project_name,
-                name="{0}_{1}_{2}".format(
-                    "AM" if config["use_action_mask"] else "NM",
-                    "CNN" if config["use_cnn"] is True else "FC",
-                    self.current_time
+                name="{0}_{1}".format(
+                    "AM" if config["use_action_mask"] else "NM", self.current_time
                 ),
                 config=config | env_config
             )
 
-        self.use_cnn = config["use_cnn"]
         self.max_num_episodes = config["max_num_episodes"]
         self.batch_size = config["batch_size"]
         self.learning_rate = config["learning_rate"]
@@ -131,20 +125,12 @@ class DQN:
         self.epsilon_scheduled_last_episode = self.max_num_episodes * self.epsilon_final_scheduled_percent
 
         # network
-        if self.use_cnn:
-            self.q = CnnQNet(
-                height=NUM_TASKS + 1, width=3, n_actions=NUM_TASKS, use_action_mask=self.use_action_mask
-            )
-            self.target_q = CnnQNet(
-                height=NUM_TASKS + 1, width=3, n_actions=NUM_TASKS, use_action_mask=self.use_action_mask
-            )
-        else:
-            self.q = QNet(
-                n_features=(NUM_TASKS + 1) * 3, n_actions=NUM_TASKS, use_action_mask=self.use_action_mask
-            )
-            self.target_q = QNet(
-                n_features=(NUM_TASKS + 1) * 3, n_actions=NUM_TASKS, use_action_mask=self.use_action_mask
-            )
+        self.q = QNet(
+            n_features=(NUM_TASKS + 1) * 3, n_actions=NUM_TASKS, use_action_mask=self.use_action_mask
+        )
+        self.target_q = QNet(
+            n_features=(NUM_TASKS + 1) * 3, n_actions=NUM_TASKS, use_action_mask=self.use_action_mask
+        )
 
         self.target_q.load_state_dict(self.q.state_dict())
         self.optimizer = optim.Adam(self.q.parameters(), lr=self.learning_rate)
@@ -312,7 +298,7 @@ class DQN:
 
 
 def main():
-    env = TaskAllocationEnv(env_config=env_config, use_cnn=dqn_config["use_cnn"])
+    env = TaskAllocationEnv(env_config=env_config)
     validation_env = deepcopy(env)
 
     print("{0:>50}: {1}".format("USE_ACTION_MASK", dqn_config["use_action_mask"]))
