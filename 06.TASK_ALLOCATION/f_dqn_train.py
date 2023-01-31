@@ -19,6 +19,8 @@ from a_config import env_config, dqn_config, ENV_NAME, NUM_TASKS
 from c_task_allocation_env import TaskAllocationEnv
 from e_qnet import QNet, ReplayBuffer, Transition, MODEL_DIR
 
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 
 class EarlyStopModelSaver:
     """주어진 patience 이후로 episode_reward가 개선되지 않으면 학습을 조기 중지"""
@@ -126,17 +128,19 @@ class DQN:
 
         # network
         self.q = QNet(
-            n_features=(NUM_TASKS + 1) * 3, n_actions=NUM_TASKS, use_action_mask=self.use_action_mask
+            n_features=(NUM_TASKS + 1) * 3, n_actions=NUM_TASKS, use_action_mask=self.use_action_mask,
+            device=DEVICE
         )
         self.target_q = QNet(
-            n_features=(NUM_TASKS + 1) * 3, n_actions=NUM_TASKS, use_action_mask=self.use_action_mask
+            n_features=(NUM_TASKS + 1) * 3, n_actions=NUM_TASKS, use_action_mask=self.use_action_mask,
+            device=DEVICE
         )
 
         self.target_q.load_state_dict(self.q.state_dict())
         self.optimizer = optim.Adam(self.q.parameters(), lr=self.learning_rate)
 
         # agent
-        self.replay_buffer = ReplayBuffer(self.replay_buffer_size)
+        self.replay_buffer = ReplayBuffer(self.replay_buffer_size, device=DEVICE)
 
         self.time_steps = 0
         self.total_time_steps = 0
@@ -263,7 +267,7 @@ class DQN:
 
             targets = rewards + self.gamma * max_q_prime
 
-        loss = F.mse_loss(targets.detach(), q_values, reduce=True)
+        loss = F.mse_loss(targets.detach(), q_values)
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
@@ -307,7 +311,7 @@ def main():
     ))
     print("*" * 100)
 
-    use_wandb = True
+    use_wandb = False
     dqn = DQN(
         env=env, validation_env=validation_env, config=dqn_config, env_config=env_config, use_wandb=use_wandb
     )

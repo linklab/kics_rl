@@ -13,6 +13,8 @@ from c_task_allocation_env import TaskAllocationEnv
 from e_qnet import QNet, MODEL_DIR
 from b_task_allocation_with_google_or_tools import solve_by_or_tool
 
+DEVICE = torch.device("cpu")
+
 
 def play(env, q, num_episodes):
     rl_episode_reward_lst = np.zeros(shape=(num_episodes,), dtype=float)
@@ -89,7 +91,8 @@ def main(num_episodes, env_name):
     print("*" * 100)
 
     q = QNet(
-        n_features=(NUM_TASKS + 1) * 3, n_actions=NUM_TASKS, use_action_mask=dqn_config["use_action_mask"]
+        n_features=(NUM_TASKS + 1) * 3, n_actions=NUM_TASKS, use_action_mask=dqn_config["use_action_mask"],
+        device=DEVICE
     )
 
     model_params = torch.load(

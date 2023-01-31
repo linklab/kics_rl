@@ -18,11 +18,9 @@ MODEL_DIR = os.path.join(PROJECT_HOME, "06.TASK_ALLOCATION", "models")
 if not os.path.exists(MODEL_DIR):
     os.mkdir(MODEL_DIR)
 
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
 
 class QNet(nn.Module):
-    def __init__(self, n_features, n_actions, use_action_mask):
+    def __init__(self, n_features, n_actions, use_action_mask, device):
         super(QNet, self).__init__()
         self.n_features = n_features
         self.n_actions = n_actions
@@ -33,11 +31,12 @@ class QNet(nn.Module):
         self.fc2 = nn.Linear(128, 128)
         self.norm2 = nn.LayerNorm(normalized_shape=128)
         self.fc3 = nn.Linear(128, n_actions)
-        self.to(DEVICE)
+        self.device = device
+        self.to(device)
 
     def forward(self, x):
         if isinstance(x, np.ndarray):
-            x = torch.tensor(x, dtype=torch.float32, device=DEVICE)
+            x = torch.tensor(x, dtype=torch.float32, device=self.device)
         x = F.leaky_relu(self.norm1(self.fc1(x)))
         x = F.leaky_relu(self.norm2(self.fc2(x)))
         x = self.fc3(x)
@@ -55,7 +54,7 @@ class QNet(nn.Module):
             q_values = self.forward(obs)
 
             if self.use_action_mask:
-                action_mask = torch.tensor(action_mask, dtype=torch.bool, device=DEVICE)
+                action_mask = torch.tensor(action_mask, dtype=torch.bool, device=self.device)
                 q_values = q_values.masked_fill(action_mask, -float('inf'))
             action = torch.argmax(q_values, dim=-1)
             action = action.item()
@@ -70,8 +69,9 @@ Transition = collections.namedtuple(
 
 
 class ReplayBuffer:
-    def __init__(self, capacity):
+    def __init__(self, capacity, device):
         self.buffer = collections.deque(maxlen=capacity)
+        self.device = device
 
     def size(self):
         return len(self.buffer)
@@ -105,11 +105,11 @@ class ReplayBuffer:
         # actions.shape, rewards.shape, dones.shape: (32, 1) (32, 1) (32,)
 
         # Convert to tensor
-        observations = torch.tensor(observations, dtype=torch.float32, device=DEVICE)
-        actions = torch.tensor(actions, dtype=torch.int64, device=DEVICE)
-        next_observations = torch.tensor(next_observations, dtype=torch.float32, device=DEVICE)
-        rewards = torch.tensor(rewards, dtype=torch.float32, device=DEVICE)
-        dones = torch.tensor(dones, dtype=torch.bool, device=DEVICE)
-        action_masks = torch.tensor(action_masks, dtype=torch.bool, device=DEVICE)
+        observations = torch.tensor(observations, dtype=torch.float32, device=self.device)
+        actions = torch.tensor(actions, dtype=torch.int64, device=self.device)
+        next_observations = torch.tensor(next_observations, dtype=torch.float32, device=self.device)
+        rewards = torch.tensor(rewards, dtype=torch.float32, device=self.device)
+        dones = torch.tensor(dones, dtype=torch.bool, device=self.device)
+        action_masks = torch.tensor(action_masks, dtype=torch.bool, device=self.device)
 
         return observations, actions, next_observations, rewards, dones, action_masks
