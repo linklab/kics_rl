@@ -155,6 +155,11 @@ class TaskAllocationEnv(gym.Env):
             self.ram_allocated = self.ram_allocated + ram_step
             self.total_allocated = self.total_allocated + cpu_step + ram_step
 
+            self.min_task_cpu_demand = np.min(
+                [cpu if cpu != -1 else self.MAX_RESOURCE_DEMAND_AT_TASK[0] + 1 for cpu in self.internal_state[:-1, 1]])
+            self.min_task_ram_demand = np.min(
+                [ram if ram != -1 else self.MAX_RESOURCE_DEMAND_AT_TASK[1] + 1 for ram in self.internal_state[:-1, 2]])
+
             conditions = [
                 self.internal_state[-1][1] < self.min_task_cpu_demand,
                 self.internal_state[-1][2] < self.min_task_ram_demand
