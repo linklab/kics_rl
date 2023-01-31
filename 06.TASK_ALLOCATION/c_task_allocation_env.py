@@ -9,9 +9,8 @@ from a_config import STATIC_TASK_RESOURCE_DEMAND_SAMPLE
 class DoneReasonType(enum.Enum):
     TYPE_FAIL_1 = "The Same Task Selected"
     TYPE_FAIL_2 = "Resource Limit Exceeded"
-    TYPE_SUCCESS_1 = "All Tasks Allocated Successfully - [ALL]"
-    TYPE_SUCCESS_2 = "All Resources Used Up - [BEST]"
-    TYPE_SUCCESS_3 = "A Resource Used Up - [GOOD]"
+    TYPE_SUCCESS_1 = "All Tasks Allocated Successfully"
+    TYPE_SUCCESS_2 = "An Unavailable Resource"
 
 
 class TaskAllocationEnv(gym.Env):
@@ -165,10 +164,10 @@ class TaskAllocationEnv(gym.Env):
             if 0 not in self.internal_state[:self.NUM_TASKS, 0]:
                 terminated = True
                 info[
-                    'DoneReasonType'] = DoneReasonType.TYPE_SUCCESS_1  ##### All Tasks Allocated Successfully - [ALL] #####
+                    'DoneReasonType'] = DoneReasonType.TYPE_SUCCESS_1
             elif len(available_tasks[0]) == 0:
                 terminated = True
-                info['DoneReasonType'] = DoneReasonType.TYPE_SUCCESS_2  ##### All Resources Used Up - [BEST] #####
+                info['DoneReasonType'] = DoneReasonType.TYPE_SUCCESS_2
             else:
                 self.action_mask[action_idx] = 1.0
         ###########################
