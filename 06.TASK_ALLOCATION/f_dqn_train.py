@@ -155,7 +155,7 @@ class DQN:
 
         total_train_start_time = time.time()
 
-        validation_episode_reward_avg = -1.0
+        validation_episode_reward_avg = 0.75
 
         is_terminated = False
 

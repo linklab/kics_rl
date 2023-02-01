@@ -31,14 +31,21 @@ def solve_by_or_tool(num_tasks, num_resources, task_demands, resource_capacity):
     utilization = None
     if status == pywraplp.Solver.OPTIMAL:
         utilization = solver.Objective().Value()
+        selected_tasks_demand = np.zeros(shape=(num_resources,), dtype=float)
         for i in range(num_tasks):
-            print("Task {0} [{1:>3},{2:>3}] is selected with value = {3}".format(
-                i, task_demands[i][0], task_demands[i][1], xs[i].solution_value())
-            )
-        resources_of_selected_tasks = [
-            xs[i].solution_value() * task_demands[i][j] for j in range(num_resources) for i in range(num_tasks)
-        ]
-        print(sum(resources_of_selected_tasks) / sum(resource_capacity))
+
+            if xs[i].solution_value() == 1.0:
+                for j in range(num_resources):
+                    selected_tasks_demand[j] += task_demands[i][j]
+
+            print("Task {0} [{1:>3},{2:>3}] is selected with value = {3} ({4}, {5})".format(
+                i, task_demands[i][0], task_demands[i][1], xs[i].solution_value(),
+                selected_tasks_demand[0], selected_tasks_demand[1]
+            ))
+        print("Utilization: ({0} + {1}) / ({2} + {3}) = {4}".format(
+            selected_tasks_demand[0], selected_tasks_demand[1], resource_capacity[0], resource_capacity[1],
+            sum(selected_tasks_demand) / sum(resource_capacity)
+        ))
     else:
         print("Solver status: ", status)
 
