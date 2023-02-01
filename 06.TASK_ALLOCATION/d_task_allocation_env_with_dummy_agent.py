@@ -9,9 +9,10 @@ class Dummy_Agent:
     def __init__(self, num_tasks):
         self.num_tasks = num_tasks
 
-    def get_action(self, observation):
+    def get_action(self, observation, action_mask):
         # observation is not used
-        action_id = random.choice(range(self.num_tasks))
+        available_actions = np.where(action_mask==0)
+        action_id = random.choice(available_actions[0])
         return action_id
 
 
@@ -34,7 +35,7 @@ def main():
     done = False
     print("[Step: RESET] Info: {0}".format(info))
     while not done:
-        action = agent.get_action(observation)
+        action = agent.get_action(observation, info["ACTION_MASK"])
         next_observation, reward, terminated, truncated, info = env.step(action)
 
         episode_step += 1

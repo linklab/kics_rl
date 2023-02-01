@@ -84,16 +84,12 @@ def play(env, q, num_episodes):
 def main(num_episodes, env_name):
     env = TaskAllocationEnv(env_config=env_config)
 
-    print("{0:>50}: {1}".format("USE_ACTION_MASK", dqn_config["use_action_mask"]))
     print("{0:>50}: {1}".format(
         "USE_EARLY_STOP_WITH_BEST_VALIDATION_MODEL", dqn_config["use_early_stop_with_best_validation_model"]
     ))
     print("*" * 100)
 
-    q = QNet(
-        n_features=(NUM_TASKS + 1) * 3, n_actions=NUM_TASKS, use_action_mask=dqn_config["use_action_mask"],
-        device=DEVICE
-    )
+    q = QNet(n_features=(NUM_TASKS + 1) * 3, n_actions=NUM_TASKS, device=DEVICE)
 
     model_params = torch.load(
         os.path.join(MODEL_DIR, "dqn_{0}_{1}_latest.pth".format(NUM_TASKS, env_name))

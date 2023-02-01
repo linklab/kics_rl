@@ -132,46 +132,33 @@ class TaskAllocationEnv(gym.Env):
         ### terminated 결정 - 시작 ###
         ###########################
         terminated = False
-        if self.internal_state[action_idx][0] == 1:
-            print("!" * 100)
-            terminated = True
-            self.action_mask[action_idx] = None
-            info['DoneReasonType'] = DoneReasonType.TYPE_FAIL_1   ##### [TYPE 1] The Same Task Selected #####
+        assert (self.internal_state[action_idx][0] == 0), "The Same Task Selected"
+        assert (self.cpu_allocated + cpu_step <= self.CPU_RESOURCE_CAPACITY) and \
+                    (self.ram_allocated + ram_step <= self.RAM_RESOURCE_CAPACITY), "Resource Limit Exceeded"
 
-        elif (self.cpu_allocated + cpu_step > self.CPU_RESOURCE_CAPACITY) or \
-                    (self.ram_allocated + ram_step > self.RAM_RESOURCE_CAPACITY):
-            print("!"*100)
-            terminated = True
-            info['DoneReasonType'] = DoneReasonType.TYPE_FAIL_2   ##### [TYPE 2] Resource Limit Exceeded #####
+        self.internal_state[action_idx][0] = 1.0
+        self.internal_state[action_idx][1] = -1.0
+        self.internal_state[action_idx][2] = -1.0
 
+        self.internal_state[-1][1] = self.internal_state[-1][1] - cpu_step
+        self.internal_state[-1][2] = self.internal_state[-1][2] - ram_step
+
+        self.cpu_allocated = self.cpu_allocated + cpu_step
+        self.ram_allocated = self.ram_allocated + ram_step
+        self.total_allocated = self.total_allocated + cpu_step + ram_step
+
+        non_available_tasks = np.where(
+            (self.internal_state[:-1, 1] < 0) |
+            (self.internal_state[:-1, 1] > self.internal_state[-1][1]) |
+            (self.internal_state[:-1, 2] < 0) |
+            (self.internal_state[:-1, 2] > self.internal_state[-1][2])
+        )
+
+        if len(non_available_tasks[0]) == self.NUM_TASKS:
+            terminated = True
+            info['DoneReasonType'] = DoneReasonType.TYPE_SUCCESS_2
         else:
-            self.internal_state[action_idx][0] = 1.0
-            self.internal_state[action_idx][1] = -1.0
-            self.internal_state[action_idx][2] = -1.0
-
-            self.internal_state[-1][1] = self.internal_state[-1][1] - cpu_step
-            self.internal_state[-1][2] = self.internal_state[-1][2] - ram_step
-
-            self.cpu_allocated = self.cpu_allocated + cpu_step
-            self.ram_allocated = self.ram_allocated + ram_step
-            self.total_allocated = self.total_allocated + cpu_step + ram_step
-
-            non_available_tasks = np.where(
-                (self.internal_state[:-1, 1] < 0) |
-                (self.internal_state[:-1, 1] > self.internal_state[-1][1]) |
-                (self.internal_state[:-1, 2] < 0) |
-                (self.internal_state[:-1, 2] > self.internal_state[-1][2])
-            )
-
-            if 0 not in self.internal_state[:self.NUM_TASKS, 0]:
-                terminated = True
-                info[
-                    'DoneReasonType'] = DoneReasonType.TYPE_SUCCESS_1
-            elif len(non_available_tasks[0]) == self.NUM_TASKS:
-                terminated = True
-                info['DoneReasonType'] = DoneReasonType.TYPE_SUCCESS_2
-            else:
-                self.action_mask[non_available_tasks[0]] = 1.0
+            self.action_mask[non_available_tasks[0]] = 1.0
 
         ###########################
         ### terminated 결정 - 종료 ###
@@ -183,25 +170,17 @@ class TaskAllocationEnv(gym.Env):
 
         if terminated:
             info["ACTION_MASK"] = np.ones(shape=(self.NUM_TASKS,), dtype=float) * -1.0
-            reward = self.get_reward(done_type=info['DoneReasonType'])
-        else:
-            reward = self.get_reward()
+
+        reward = self.get_reward()
 
         truncated = None
 
         return next_observation, reward, terminated, truncated, info
 
-    def get_reward(self, done_type=None):
-        # The Same Task Selected or
-        # Resource Limit Exceeded
-        if done_type == DoneReasonType.TYPE_FAIL_1 or done_type == DoneReasonType.TYPE_FAIL_2:
-            fail_reward = -1.0
-        else:
-            fail_reward = 0.0
-
+    def get_reward(self):
         reward = self.resources_step / self.TOTAL_RESOURCE_CAPACITY
 
-        return reward + fail_reward
+        return reward
 
     def fill_info(self, info):
         info["TOTAL_RESOURCE_CAPACITY"] = self.TOTAL_RESOURCE_CAPACITY

@@ -102,9 +102,7 @@ class DQN:
 
             self.wandb = wandb.init(
                 project=project_name,
-                name="{0}_{1}".format(
-                    "AM" if config["use_action_mask"] else "NM", self.current_time
-                ),
+                name="{0}_{1}".format("AM", self.current_time),
                 config=config | env_config
             )
 
@@ -112,7 +110,6 @@ class DQN:
         self.batch_size = config["batch_size"]
         self.learning_rate = config["learning_rate"]
         self.gamma = config["gamma"]
-        self.use_action_mask = config["use_action_mask"]
         self.steps_between_train = config["steps_between_train"]
         self.target_sync_step_interval = config["target_sync_step_interval"]
         self.replay_buffer_size = config["replay_buffer_size"]
@@ -127,14 +124,8 @@ class DQN:
         self.epsilon_scheduled_last_episode = self.max_num_episodes * self.epsilon_final_scheduled_percent
 
         # network
-        self.q = QNet(
-            n_features=(NUM_TASKS + 1) * 3, n_actions=NUM_TASKS, use_action_mask=self.use_action_mask,
-            device=DEVICE
-        )
-        self.target_q = QNet(
-            n_features=(NUM_TASKS + 1) * 3, n_actions=NUM_TASKS, use_action_mask=self.use_action_mask,
-            device=DEVICE
-        )
+        self.q = QNet(n_features=(NUM_TASKS + 1) * 3, n_actions=NUM_TASKS, device=DEVICE)
+        self.target_q = QNet(n_features=(NUM_TASKS + 1) * 3, n_actions=NUM_TASKS, device=DEVICE)
 
         self.target_q.load_state_dict(self.q.state_dict())
         self.optimizer = optim.Adam(self.q.parameters(), lr=self.learning_rate)
@@ -259,8 +250,7 @@ class DQN:
         with torch.no_grad():
             q_prime_out = self.target_q(next_observations)
 
-            if self.use_action_mask:
-                q_prime_out = q_prime_out.masked_fill(action_masks, -float('inf'))
+            q_prime_out = q_prime_out.masked_fill(action_masks, -float('inf'))
 
             max_q_prime = q_prime_out.max(dim=-1, keepdim=True).values
             max_q_prime[dones] = 0.0
@@ -305,7 +295,6 @@ def main():
     env = TaskAllocationEnv(env_config=env_config)
     validation_env = deepcopy(env)
 
-    print("{0:>50}: {1}".format("USE_ACTION_MASK", dqn_config["use_action_mask"]))
     print("{0:>50}: {1}".format(
         "USE_EARLY_STOP_WITH_BEST_VALIDATION_MODEL", dqn_config["use_early_stop_with_best_validation_model"]
     ))
