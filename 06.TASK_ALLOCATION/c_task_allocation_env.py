@@ -116,6 +116,7 @@ class TaskAllocationEnv(gym.Env):
 
         info = {}
         self.fill_info(info)
+        info["ACTION_MASK"] = self.action_mask
 
         return observation, info
 
@@ -125,16 +126,13 @@ class TaskAllocationEnv(gym.Env):
 
         cpu_step = self.internal_state[action_idx][1]
         ram_step = self.internal_state[action_idx][2]
-
         self.resources_step = cpu_step + ram_step
 
-        ###########################
-        ### terminated 결정 - 시작 ###
-        ###########################
-        terminated = False
-        assert (self.internal_state[action_idx][0] == 0), "The Same Task Selected"
+        assert (self.internal_state[action_idx][0] == 0), "The Same Task Selected: {0}".format(action_idx)
         assert (self.cpu_allocated + cpu_step <= self.CPU_RESOURCE_CAPACITY) and \
                     (self.ram_allocated + ram_step <= self.RAM_RESOURCE_CAPACITY), "Resource Limit Exceeded"
+
+        terminated = False
 
         self.internal_state[action_idx][0] = 1.0
         self.internal_state[action_idx][1] = -1.0
@@ -147,22 +145,18 @@ class TaskAllocationEnv(gym.Env):
         self.ram_allocated = self.ram_allocated + ram_step
         self.total_allocated = self.total_allocated + cpu_step + ram_step
 
-        non_available_tasks = np.where(
+        unavailable_tasks = np.where(
             (self.internal_state[:-1, 1] < 0) |
             (self.internal_state[:-1, 1] > self.internal_state[-1][1]) |
             (self.internal_state[:-1, 2] < 0) |
             (self.internal_state[:-1, 2] > self.internal_state[-1][2])
-        )
+        )[0]
 
-        if len(non_available_tasks[0]) == self.NUM_TASKS:
+        if len(unavailable_tasks) == self.NUM_TASKS:
             terminated = True
             info['DoneReasonType'] = DoneReasonType.TYPE_SUCCESS_2
         else:
-            self.action_mask[non_available_tasks[0]] = 1.0
-
-        ###########################
-        ### terminated 결정 - 종료 ###
-        ###########################
+            self.action_mask[unavailable_tasks[0]] = 1.0
 
         next_observation = self.internal_state.flatten()
 
@@ -170,6 +164,8 @@ class TaskAllocationEnv(gym.Env):
 
         if terminated:
             info["ACTION_MASK"] = np.ones(shape=(self.NUM_TASKS,), dtype=float) * -1.0
+        else:
+            info["ACTION_MASK"] = self.action_mask
 
         reward = self.get_reward()
 
@@ -194,4 +190,3 @@ class TaskAllocationEnv(gym.Env):
         info["CPU_ALLOCATED"] = self.cpu_allocated
         info["RAM_ALLOCATED"] = self.ram_allocated
         info["INTERNAL_STATE"] = self.internal_state
-        info["ACTION_MASK"] = self.action_mask

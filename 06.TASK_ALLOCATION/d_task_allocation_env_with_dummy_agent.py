@@ -11,8 +11,8 @@ class Dummy_Agent:
 
     def get_action(self, observation, action_mask):
         # observation is not used
-        available_actions = np.where(action_mask==0)
-        action_id = random.choice(available_actions[0])
+        available_actions = np.where(action_mask == 0)[0]
+        action_id = random.choice(available_actions)
         return action_id
 
 
