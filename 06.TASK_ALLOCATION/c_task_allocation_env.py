@@ -133,12 +133,14 @@ class TaskAllocationEnv(gym.Env):
         ###########################
         terminated = False
         if self.internal_state[action_idx][0] == 1:
+            print("!" * 100)
             terminated = True
             self.action_mask[action_idx] = None
             info['DoneReasonType'] = DoneReasonType.TYPE_FAIL_1   ##### [TYPE 1] The Same Task Selected #####
 
         elif (self.cpu_allocated + cpu_step > self.CPU_RESOURCE_CAPACITY) or \
                     (self.ram_allocated + ram_step > self.RAM_RESOURCE_CAPACITY):
+            print("!"*100)
             terminated = True
             info['DoneReasonType'] = DoneReasonType.TYPE_FAIL_2   ##### [TYPE 2] Resource Limit Exceeded #####
 
@@ -169,7 +171,7 @@ class TaskAllocationEnv(gym.Env):
                 terminated = True
                 info['DoneReasonType'] = DoneReasonType.TYPE_SUCCESS_2
             else:
-                self.action_mask[action_idx] = 1.0
+                self.action_mask[available_tasks[0]] = 1.0
         ###########################
         ### terminated 결정 - 종료 ###
         ###########################
