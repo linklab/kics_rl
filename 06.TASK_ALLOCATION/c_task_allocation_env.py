@@ -135,8 +135,8 @@ class TaskAllocationEnv(gym.Env):
         terminated = False
 
         self.internal_state[action_idx][0] = 1.0
-        self.internal_state[action_idx][1] = -1.0
-        self.internal_state[action_idx][2] = -1.0
+        self.internal_state[action_idx][1] = 0.0
+        self.internal_state[action_idx][2] = 0.0
 
         self.internal_state[-1][1] = self.internal_state[-1][1] - cpu_step
         self.internal_state[-1][2] = self.internal_state[-1][2] - ram_step
@@ -146,9 +146,9 @@ class TaskAllocationEnv(gym.Env):
         self.total_allocated = self.total_allocated + cpu_step + ram_step
 
         unavailable_tasks = np.where(
-            (self.internal_state[:-1, 1] < 0) |
+            (self.internal_state[:-1, 1] == 0.0) |
             (self.internal_state[:-1, 1] > self.internal_state[-1][1]) |
-            (self.internal_state[:-1, 2] < 0) |
+            (self.internal_state[:-1, 2] == 0.0) |
             (self.internal_state[:-1, 2] > self.internal_state[-1][2])
         )[0]
 
@@ -156,7 +156,7 @@ class TaskAllocationEnv(gym.Env):
             terminated = True
             info['DoneReasonType'] = DoneReasonType.TYPE_SUCCESS_2
         else:
-            self.action_mask[unavailable_tasks[0]] = 1.0
+            self.action_mask[unavailable_tasks] = 1.0
 
         next_observation = self.internal_state.flatten()
 
