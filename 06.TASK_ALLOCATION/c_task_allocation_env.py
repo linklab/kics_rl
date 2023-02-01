@@ -156,22 +156,23 @@ class TaskAllocationEnv(gym.Env):
             self.ram_allocated = self.ram_allocated + ram_step
             self.total_allocated = self.total_allocated + cpu_step + ram_step
 
-            available_tasks = np.where(
-                (self.internal_state[:-1, 1] > 0) &
-                (self.internal_state[:-1, 1] < self.internal_state[-1][1]) &
-                (self.internal_state[:-1, 2] > 0) &
-                (self.internal_state[:-1, 2] < self.internal_state[-1][2])
+            non_available_tasks = np.where(
+                (self.internal_state[:-1, 1] < 0) |
+                (self.internal_state[:-1, 1] > self.internal_state[-1][1]) |
+                (self.internal_state[:-1, 2] < 0) |
+                (self.internal_state[:-1, 2] > self.internal_state[-1][2])
             )
 
             if 0 not in self.internal_state[:self.NUM_TASKS, 0]:
                 terminated = True
                 info[
                     'DoneReasonType'] = DoneReasonType.TYPE_SUCCESS_1
-            elif len(available_tasks[0]) == 0:
+            elif len(non_available_tasks[0]) == self.NUM_TASKS:
                 terminated = True
                 info['DoneReasonType'] = DoneReasonType.TYPE_SUCCESS_2
             else:
-                self.action_mask[available_tasks[0]] = 1.0
+                self.action_mask[non_available_tasks[0]] = 1.0
+
         ###########################
         ### terminated 결정 - 종료 ###
         ###########################

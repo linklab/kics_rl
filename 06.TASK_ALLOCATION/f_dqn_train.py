@@ -311,7 +311,7 @@ def main():
     ))
     print("*" * 100)
 
-    use_wandb = True
+    use_wandb = False
     dqn = DQN(
         env=env, validation_env=validation_env, config=dqn_config, env_config=env_config, use_wandb=use_wandb
     )
