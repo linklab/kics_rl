@@ -25,29 +25,24 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 class EarlyStopModelSaver:
     """주어진 patience 이후로 episode_reward가 개선되지 않으면 학습을 조기 중지"""
 
-    def __init__(self, patience, max_num_episodes):
+    def __init__(self, patience):
         """
         Args:
             patience (int): episode_reward가 개선될 때까지 기다리는 기간
         """
         self.patience = patience
-        self.max_num_episodes = max_num_episodes
         self.counter = 0
-        self.max_validation_episode_reward_avg = -np.inf
+        self.min_train_loss = np.inf
 
     def check(
-            self, validation_episode_reward_avg, num_tasks, env_name, current_time,
+            self, train_loss, validation_episode_reward_avg, num_tasks, env_name, current_time,
             n_episode, time_steps, training_time_steps, q
     ):
         early_stop = False
 
-        conditions = [
-            validation_episode_reward_avg > 0.0,
-            validation_episode_reward_avg >= self.max_validation_episode_reward_avg
-        ]
-        if all(conditions):
+        if train_loss <= self.min_train_loss:
             self.model_save(validation_episode_reward_avg, num_tasks, env_name, n_episode, current_time, q)
-            self.max_validation_episode_reward_avg = validation_episode_reward_avg
+            self.min_train_loss = train_loss
             self.counter = 0
         else:
             self.counter += 1
@@ -118,7 +113,7 @@ class DQN:
         self.epsilon_final_scheduled_percent = config["epsilon_final_scheduled_percent"]
         self.print_episode_interval = config["print_episode_interval"]
         self.train_num_episodes_before_next_validation = config["train_num_episodes_before_next_validation"]
-        self.use_early_stop_with_best_validation_model = config["use_early_stop_with_best_validation_model"]
+        self.use_early_stop_with_minimal_loss_value = config["use_early_stop_with_minimal_loss_value"]
         self.validation_num_episodes = config["validation_num_episodes"]
 
         self.epsilon_scheduled_last_episode = self.max_num_episodes * self.epsilon_final_scheduled_percent
@@ -137,9 +132,7 @@ class DQN:
         self.total_time_steps = 0
         self.training_time_steps = 0
 
-        self.early_stop_model_saver = EarlyStopModelSaver(
-            patience=config["early_stop_patience"], max_num_episodes=config["max_num_episodes"]
-        )
+        self.early_stop_model_saver = EarlyStopModelSaver(patience=config["early_stop_patience"])
 
     def epsilon_scheduled(self, current_episode):
         fraction = min(current_episode / self.epsilon_scheduled_last_episode, 1.0)
@@ -207,10 +200,13 @@ class DQN:
                     validation_episode_reward_lst, validation_episode_reward_avg
                 ))
 
-                if self.use_early_stop_with_best_validation_model:
+                if self.use_early_stop_with_minimal_loss_value:
                     is_terminated = self.early_stop_model_saver.check(
-                        validation_episode_reward_avg, NUM_TASKS, ENV_NAME, self.current_time,
-                        n_episode, self.time_steps, self.training_time_steps, self.q
+                        train_loss=loss,
+                        validation_episode_reward_avg=validation_episode_reward_avg,
+                        num_tasks=NUM_TASKS, env_name=ENV_NAME, current_time=self.current_time,
+                        n_episode=n_episode, time_steps=self.time_steps, training_time_steps=self.training_time_steps,
+                        q=self.q
                     )
 
             if self.use_wandb:
@@ -228,7 +224,7 @@ class DQN:
             if is_terminated:
                 break
 
-        if not self.use_early_stop_with_best_validation_model:
+        if not self.use_early_stop_with_minimal_loss_value:
             self.early_stop_model_saver.model_save(
                 validation_episode_reward_avg, NUM_TASKS, ENV_NAME, self.max_num_episodes, self.current_time, self.q
             )
@@ -296,7 +292,7 @@ def main():
     validation_env = deepcopy(env)
 
     print("{0:>50}: {1}".format(
-        "USE_EARLY_STOP_WITH_BEST_VALIDATION_MODEL", dqn_config["use_early_stop_with_best_validation_model"]
+        "USE_EARLY_STOP_WITH_BEST_VALIDATION_MODEL", dqn_config["use_early_stop_with_minimal_loss_value"]
     ))
     print("*" * 100)
 

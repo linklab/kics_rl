@@ -85,7 +85,7 @@ def main(num_episodes, env_name):
     env = TaskAllocationEnv(env_config=env_config)
 
     print("{0:>50}: {1}".format(
-        "USE_EARLY_STOP_WITH_BEST_VALIDATION_MODEL", dqn_config["use_early_stop_with_best_validation_model"]
+        "USE_EARLY_STOP_WITH_BEST_VALIDATION_MODEL", dqn_config["use_early_stop_with_minimal_loss_value"]
     ))
     print("*" * 100)
 

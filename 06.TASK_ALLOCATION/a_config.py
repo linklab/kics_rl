@@ -47,7 +47,7 @@ dqn_config = {
     "print_episode_interval": 10,                           # Episode 통계 출력에 관한 에피소드 간격
     "train_num_episodes_before_next_validation": 200,       # 검증 사이 마다 각 훈련 episode 간격
     "validation_num_episodes": 30,                          # 검증에 수행하는 에피소드 횟수
-    "use_early_stop_with_best_validation_model": False,     # early stop 사용 유무
+    "use_early_stop_with_minimal_loss_value": True,     # early stop 사용 유무
     "early_stop_patience": env_config["num_tasks"] * 100,   # episode_reward가 개선될 때까지 기다리는 기간
 }
 
