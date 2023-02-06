@@ -84,9 +84,6 @@ def play(env, q, num_episodes):
 def main(num_episodes, env_name):
     env = TaskAllocationEnv(env_config=env_config)
 
-    print("{0:>50}: {1}".format(
-        "USE_EARLY_STOP_WITH_BEST_VALIDATION_MODEL", dqn_config["use_early_stop_with_minimal_loss_value"]
-    ))
     print("*" * 100)
 
     q = QNet(n_features=(NUM_TASKS + 1) * 3, n_actions=NUM_TASKS, device=DEVICE)

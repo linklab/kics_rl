@@ -124,7 +124,6 @@ class DQN:
         self.epsilon_final_scheduled_percent = config["epsilon_final_scheduled_percent"]
         self.print_episode_interval = config["print_episode_interval"]
         self.train_num_episodes_before_next_validation = config["train_num_episodes_before_next_validation"]
-        self.use_early_stop_with_minimal_loss_value = config["use_early_stop_with_minimal_loss_value"]
         self.validation_num_episodes = config["validation_num_episodes"]
 
         self.epsilon_scheduled_last_episode = self.max_num_episodes * self.epsilon_final_scheduled_percent
@@ -211,14 +210,13 @@ class DQN:
                     validation_episode_reward_lst, validation_episode_reward_avg
                 ))
 
-                if self.use_early_stop_with_minimal_loss_value:
-                    is_terminated = self.early_stop_model_saver.check(
-                        train_loss=loss,
-                        validation_episode_reward_avg=validation_episode_reward_avg,
-                        num_tasks=NUM_TASKS, env_name=ENV_NAME, current_time=self.current_time,
-                        n_episode=n_episode, time_steps=self.time_steps, training_time_steps=self.training_time_steps,
-                        q=self.q
-                    )
+                is_terminated = self.early_stop_model_saver.check(
+                    train_loss=loss,
+                    validation_episode_reward_avg=validation_episode_reward_avg,
+                    num_tasks=NUM_TASKS, env_name=ENV_NAME, current_time=self.current_time,
+                    n_episode=n_episode, time_steps=self.time_steps, training_time_steps=self.training_time_steps,
+                    q=self.q
+                )
 
             if self.use_wandb:
                 self.wandb.log({
@@ -235,10 +233,6 @@ class DQN:
             if is_terminated:
                 break
 
-        if not self.use_early_stop_with_minimal_loss_value:
-            self.early_stop_model_saver.model_save(
-                validation_episode_reward_avg, NUM_TASKS, ENV_NAME, self.max_num_episodes, self.current_time, self.q
-            )
         total_training_time = time.time() - total_train_start_time
         total_training_time_str = time.strftime('%H:%M:%S', time.gmtime(total_training_time))
         print("Total Training End : {}".format(total_training_time_str))
@@ -302,9 +296,6 @@ def main():
     env = TaskAllocationEnv(env_config=env_config)
     validation_env = deepcopy(env)
 
-    print("{0:>50}: {1}".format(
-        "USE_EARLY_STOP_WITH_BEST_VALIDATION_MODEL", dqn_config["use_early_stop_with_minimal_loss_value"]
-    ))
     print("*" * 100)
 
     use_wandb = True
