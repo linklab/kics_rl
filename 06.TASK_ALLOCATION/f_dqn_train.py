@@ -33,6 +33,7 @@ class EarlyStopModelSaver:
         self.patience = patience
         self.counter = 0
         self.min_train_loss = np.inf
+        self.model_filename_saved = None
 
     def check(
             self, train_loss, validation_episode_reward_avg, num_tasks, env_name, current_time,
@@ -41,27 +42,37 @@ class EarlyStopModelSaver:
         early_stop = False
 
         if train_loss <= self.min_train_loss:
+            print("[EARLY STOP] min_loss {0:.5f} is decreased to {1:.5f}".format(
+                self.min_train_loss, train_loss
+            ))
             self.model_save(validation_episode_reward_avg, num_tasks, env_name, n_episode, current_time, q)
             self.min_train_loss = train_loss
             self.counter = 0
         else:
             self.counter += 1
-            if self.counter >= self.patience:
+            if self.counter < self.patience:
+                print("[EARLY STOP] COUNTER: {0} (loss/min_loss={1:.5f}/{2:.5f})".format(
+                    self.counter, train_loss, self.min_train_loss
+                ))
+            else:
                 early_stop = True
                 print("[EARLY STOP] COUNTER: {0} - Solved in {1:,} episode, {2:,} steps ({3:,} training steps)!".format(
                     self.counter, n_episode, time_steps, training_time_steps
                 ))
-            else:
-                print("[EARLY STOP] COUNTER: {0}".format(self.counter))
         return early_stop
 
     def model_save(self, validation_episode_reward_avg, num_tasks, env_name, n_episode, current_time, q):
+        if self.model_filename_saved is not None:
+            os.remove(self.model_filename_saved)
+
         filename = "dqn_{0}_{1}_{2}_{3:5.3f}_{4}.pth".format(
             num_tasks, env_name,
             current_time, validation_episode_reward_avg, n_episode
         )
-        torch.save(q.state_dict(), os.path.join(MODEL_DIR, filename))
-        print("*** MODEL SAVED TO {0}".format(os.path.join(MODEL_DIR, filename)))
+        filename = os.path.join(MODEL_DIR, filename)
+        torch.save(q.state_dict(), filename)
+        self.model_filename_saved = filename
+        print("*** MODEL SAVED TO {0}".format(filename))
 
         latest_file_name = "dqn_{0}_{1}_latest.pth".format(NUM_TASKS, env_name)
         copyfile(
@@ -187,7 +198,7 @@ class DQN:
                     "[Episode {:3,}, Time Steps {:6,}]".format(n_episode, self.time_steps),
                     "Episode Reward: {:>5.2f},".format(episode_reward),
                     "Replay buffer: {:>6,},".format(self.replay_buffer.size()),
-                    "Loss: {:6.3f},".format(loss),
+                    "Loss: {:.6f},".format(loss),
                     "Epsilon: {:4.2f},".format(epsilon),
                     "Training Steps: {:>5,},".format(self.training_time_steps),
                     "Elapsed Time: {}".format(total_training_time_str)
