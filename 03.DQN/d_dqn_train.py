@@ -141,10 +141,10 @@ class DQN:
                 self.wandb.log({
                     "[TEST] Mean Episode Reward ({0} Episodes)".format(self.test_num_episodes): test_episode_reward_avg,
                     "[TRAIN] Episode Reward": episode_reward,
-                    "Loss": loss if loss != 0.0 else 0.0,
-                    "Epsilon": epsilon,
+                    "[TRAIN] Loss": loss if loss != 0.0 else 0.0,
+                    "[TRAIN] Epsilon": epsilon,
+                    "[TRAIN] Replay buffer": self.replay_buffer.size(),
                     "Training Episode": n_episode,
-                    "Replay buffer": self.replay_buffer.size(),
                     "Training Steps": self.training_time_steps
                 })
 

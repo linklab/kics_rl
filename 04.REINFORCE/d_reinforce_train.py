@@ -118,11 +118,11 @@ class REINFORCE:
                 self.wandb.log({
                     "[TEST] Mean Episode Reward ({0} Episodes)".format(self.test_num_episodes): test_episode_reward_avg,
                     "[TRAIN] Episode Reward": episode_reward,
-                    "Policy Loss": policy_loss,
-                    "avg_mu_v": avg_mu_v,
-                    "avg_std_v": avg_std_v,
-                    "avg_action": avg_action,
-                    "avg_action_prob": avg_action_prob,
+                    "[TRAIN] Policy Loss": policy_loss,
+                    "[TRAIN] avg_mu_v": avg_mu_v,
+                    "[TRAIN] avg_std_v": avg_std_v,
+                    "[TRAIN] avg_action": avg_action,
+                    "[TRAIN] avg_action_prob": avg_action_prob,
                     "Training Episode": n_episode,
                     "Training Steps": self.training_time_steps,
                 })
