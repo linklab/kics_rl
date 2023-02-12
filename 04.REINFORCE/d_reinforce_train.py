@@ -17,9 +17,9 @@ from c_policy_and_value import DEVICE, MODEL_DIR, Policy, Transition, Buffer, St
 
 
 class REINFORCE:
-    def __init__(self, env, validation_env, config, use_baseline, use_wandb):
+    def __init__(self, env, test_env, config, use_baseline, use_wandb):
         self.env = env
-        self.validation_env = validation_env
+        self.test_env = test_env
         self.use_baseline = use_baseline
         self.use_wandb = use_wandb
 
@@ -38,8 +38,8 @@ class REINFORCE:
         self.learning_rate = config["learning_rate"]
         self.gamma = config["gamma"]
         self.print_episode_interval = config["print_episode_interval"]
-        self.train_num_episodes_before_next_validation = config["train_num_episodes_before_next_validation"]
-        self.validation_num_episodes = config["validation_num_episodes"]
+        self.train_num_episodes_before_next_test = config["train_num_episodes_before_next_test"]
+        self.test_num_episodes = config["test_num_episodes"]
         self.episode_reward_avg_solved = config["episode_reward_avg_solved"]
 
         self.policy = Policy(n_features=3, n_actions=1)
@@ -57,7 +57,7 @@ class REINFORCE:
     def train_loop(self):
         total_train_start_time = time.time()
 
-        validation_episode_reward_avg = -1500
+        test_episode_reward_avg = -1500
 
         is_terminated = False
 
@@ -100,30 +100,30 @@ class REINFORCE:
                     "Elapsed Time: {}".format(total_training_time)
                 )
 
-            if n_episode % self.train_num_episodes_before_next_validation == 0:
-                validation_episode_reward_lst, validation_episode_reward_avg = self.validate()
+            if n_episode % self.train_num_episodes_before_next_test == 0:
+                test_episode_reward_lst, test_episode_reward_avg = self.test()
 
-                print("[Validation Episode Reward: {0}] Average: {1:.3f}".format(
-                    validation_episode_reward_lst, validation_episode_reward_avg
+                print("[Test Episode Reward: {0}] Average: {1:.3f}".format(
+                    test_episode_reward_lst, test_episode_reward_avg
                 ))
 
-                if validation_episode_reward_avg > self.episode_reward_avg_solved:
+                if test_episode_reward_avg > self.episode_reward_avg_solved:
                     print("Solved in {0:,} steps ({1:,} training steps)!".format(
                         self.time_steps, self.training_time_steps
                     ))
-                    self.model_save(validation_episode_reward_avg)
+                    self.model_save(test_episode_reward_avg)
                     is_terminated = True
 
             if self.use_wandb:
                 self.wandb.log({
-                    "[VALIDATE] Mean Episode Reward": validation_episode_reward_avg,
+                    "[TEST] Mean Episode Reward ({0} Episodes)".format(self.test_num_episodes): test_episode_reward_avg,
                     "[TRAIN] Episode Reward": episode_reward,
                     "Policy Loss": policy_loss,
                     "avg_mu_v": avg_mu_v,
                     "avg_std_v": avg_std_v,
                     "avg_action": avg_action,
                     "avg_action_prob": avg_action_prob,
-                    "Episode": n_episode,
+                    "Training Episode": n_episode,
                     "Training Steps": self.training_time_steps,
                 })
 
@@ -195,9 +195,9 @@ class REINFORCE:
             action_log_probs.exp().mean().item()
         )
 
-    def model_save(self, validation_episode_reward_avg):
+    def model_save(self, test_episode_reward_avg):
         filename = "reinforce_{0}_{1:4.1f}_{2}.pth".format(
-            self.env_name, validation_episode_reward_avg, self.current_time
+            self.env_name, test_episode_reward_avg, self.current_time
         )
         torch.save(self.policy.state_dict(), os.path.join(MODEL_DIR, filename))
 
@@ -206,13 +206,13 @@ class REINFORCE:
             dst=os.path.join(MODEL_DIR, "reinforce_{0}_latest.pth".format(self.env_name))
         )
 
-    def validate(self):
-        episode_reward_lst = np.zeros(shape=(self.validation_num_episodes,), dtype=float)
+    def test(self):
+        episode_reward_lst = np.zeros(shape=(self.test_num_episodes,), dtype=float)
 
-        for i in range(self.validation_num_episodes):
+        for i in range(self.test_num_episodes):
             episode_reward = 0
 
-            observation, _ = self.validation_env.reset()
+            observation, _ = self.test_env.reset()
 
             done = False
 
@@ -220,7 +220,7 @@ class REINFORCE:
                 # action = self.policy.get_action(observation)
                 action = self.policy.get_action(observation, exploration=False)
 
-                next_observation, reward, terminated, truncated, _ = self.validation_env.step(action * 2)
+                next_observation, reward, terminated, truncated, _ = self.test_env.step(action * 2)
 
                 episode_reward += reward
                 observation = next_observation
@@ -236,7 +236,7 @@ def main():
 
     # env
     env = gym.make(ENV_NAME)
-    validation_env = gym.make(ENV_NAME)
+    test_env = gym.make(ENV_NAME)
 
     config = {
         "env_name": ENV_NAME,                       # 환경의 이름
@@ -244,14 +244,14 @@ def main():
         "learning_rate": 0.0003,                    # 학습율
         "gamma": 0.99,                              # 감가율
         "print_episode_interval": 20,               # Episode 통계 출력에 관한 에피소드 간격
-        "train_num_episodes_before_next_validation": 100,                  # 검증 사이 마다 각 훈련 episode 간격
-        "validation_num_episodes": 3,               # 검증에 수행하는 에피소드 횟수
+        "train_num_episodes_before_next_test": 100,                  # 검증 사이 마다 각 훈련 episode 간격
+        "test_num_episodes": 3,               # 검증에 수행하는 에피소드 횟수
         "episode_reward_avg_solved": -200,          # 훈련 종료를 위한 테스트 에피소드 리워드의 Average
     }
 
     use_wandb = True
     reinforce = REINFORCE(
-        env=env, validation_env=validation_env, config=config, use_baseline=True, use_wandb=use_wandb
+        env=env, test_env=test_env, config=config, use_baseline=True, use_wandb=use_wandb
     )
     reinforce.train_loop()
 

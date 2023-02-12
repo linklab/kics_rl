@@ -16,9 +16,9 @@ from c_qnet import QNet, ReplayBuffer, Transition, DEVICE, MODEL_DIR
 
 
 class DQN:
-    def __init__(self, env, validation_env, config, use_wandb):
+    def __init__(self, env, test_env, config, use_wandb):
         self.env = env
-        self.validation_env = validation_env
+        self.test_env = test_env
         self.use_wandb = use_wandb
 
         self.env_name = config["env_name"]
@@ -43,8 +43,8 @@ class DQN:
         self.epsilon_end = config["epsilon_end"]
         self.epsilon_final_scheduled_percent = config["epsilon_final_scheduled_percent"]
         self.print_episode_interval = config["print_episode_interval"]
-        self.train_num_episodes_before_next_validation = config["train_num_episodes_before_next_validation"]
-        self.validation_num_episodes = config["validation_num_episodes"]
+        self.train_num_episodes_before_next_test = config["train_num_episodes_before_next_test"]
+        self.test_num_episodes = config["test_num_episodes"]
         self.episode_reward_avg_solved = config["episode_reward_avg_solved"]
 
         self.epsilon_scheduled_last_episode = self.max_num_episodes * self.epsilon_final_scheduled_percent
@@ -77,7 +77,7 @@ class DQN:
 
         total_train_start_time = time.time()
 
-        validation_episode_reward_avg = 0.0
+        test_episode_reward_avg = 0.0
 
         is_terminated = False
 
@@ -123,27 +123,27 @@ class DQN:
                     "Elapsed Time: {}".format(total_training_time)
                 )
 
-            if n_episode % self.train_num_episodes_before_next_validation == 0:
-                validation_episode_reward_lst, validation_episode_reward_avg = self.validate()
+            if n_episode % self.train_num_episodes_before_next_test == 0:
+                test_episode_reward_lst, test_episode_reward_avg = self.test()
 
-                print("[Validation Episode Reward: {0}] Average: {1:.3f}".format(
-                    validation_episode_reward_lst, validation_episode_reward_avg
+                print("[Test Episode Reward: {0}] Average: {1:.3f}".format(
+                    test_episode_reward_lst, test_episode_reward_avg
                 ))
 
-                if validation_episode_reward_avg > self.episode_reward_avg_solved:
+                if test_episode_reward_avg > self.episode_reward_avg_solved:
                     print("Solved in {0:,} steps ({1:,} training steps)!".format(
                         self.time_steps, self.training_time_steps
                     ))
-                    self.model_save(validation_episode_reward_avg)
+                    self.model_save(test_episode_reward_avg)
                     is_terminated = True
 
             if self.use_wandb:
                 self.wandb.log({
-                    "[VALIDATE] Mean Episode Reward": validation_episode_reward_avg,
+                    "[TEST] Mean Episode Reward ({0} Episodes)".format(self.test_num_episodes): test_episode_reward_avg,
                     "[TRAIN] Episode Reward": episode_reward,
                     "Loss": loss if loss != 0.0 else 0.0,
                     "Epsilon": epsilon,
-                    "Episode": n_episode,
+                    "Training Episode": n_episode,
                     "Replay buffer": self.replay_buffer.size(),
                     "Training Steps": self.training_time_steps
                 })
@@ -206,9 +206,9 @@ class DQN:
 
         return loss.item()
 
-    def model_save(self, validation_episode_reward_avg):
+    def model_save(self, test_episode_reward_avg):
         filename = "dqn_{0}_{1:4.1f}_{2}.pth".format(
-            self.env_name, validation_episode_reward_avg, self.current_time
+            self.env_name, test_episode_reward_avg, self.current_time
         )
         torch.save(self.q.state_dict(), os.path.join(MODEL_DIR, filename))
 
@@ -217,20 +217,20 @@ class DQN:
             dst=os.path.join(MODEL_DIR, "dqn_{0}_latest.pth".format(self.env_name))
         )
 
-    def validate(self):
-        episode_reward_lst = np.zeros(shape=(self.validation_num_episodes,), dtype=float)
+    def test(self):
+        episode_reward_lst = np.zeros(shape=(self.test_num_episodes,), dtype=float)
 
-        for i in range(self.validation_num_episodes):
+        for i in range(self.test_num_episodes):
             episode_reward = 0
 
-            observation, _ = self.validation_env.reset()
+            observation, _ = self.test_env.reset()
 
             done = False
 
             while not done:
                 action = self.q.get_action(observation, epsilon=0.0)
 
-                next_observation, reward, terminated, truncated, _ = self.validation_env.step(action)
+                next_observation, reward, terminated, truncated, _ = self.test_env.step(action)
 
                 episode_reward += reward
                 observation = next_observation
@@ -245,7 +245,7 @@ def main():
     ENV_NAME = "CartPole-v1"
 
     env = gym.make(ENV_NAME)
-    validation_env = gym.make(ENV_NAME)
+    test_env = gym.make(ENV_NAME)
 
     config = {
         "env_name": ENV_NAME,                       # 환경의 이름
@@ -260,14 +260,14 @@ def main():
         "epsilon_end": 0.01,                        # Epsilon 최종 값
         "epsilon_final_scheduled_percent": 0.75,    # Epsilon 최종 값으로 스케줄되는 마지막 에피소드 비율
         "print_episode_interval": 10,               # Episode 통계 출력에 관한 에피소드 간격
-        "train_num_episodes_before_next_validation": 50,                   # 검증 사이 마다 각 훈련 episode 간격
-        "validation_num_episodes": 3,               # 검증에 수행하는 에피소드 횟수
+        "train_num_episodes_before_next_test": 50,                   # 검증 사이 마다 각 훈련 episode 간격
+        "test_num_episodes": 3,                     # 검증에 수행하는 에피소드 횟수
         "episode_reward_avg_solved": 490,           # 훈련 종료를 위한 검증 에피소드 리워드의 Average
     }
 
     use_wandb = True
     dqn = DQN(
-        env=env, validation_env=validation_env, config=config, use_wandb=use_wandb
+        env=env, test_env=test_env, config=config, use_wandb=use_wandb
     )
     dqn.train_loop()
 

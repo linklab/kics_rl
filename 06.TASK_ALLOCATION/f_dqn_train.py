@@ -36,7 +36,7 @@ class EarlyStopModelSaver:
         self.model_filename_saved = None
 
     def check(
-            self, train_loss, validation_episode_reward_avg, num_tasks, env_name, current_time,
+            self, train_loss, test_episode_reward_avg, num_tasks, env_name, current_time,
             n_episode, time_steps, training_time_steps, q
     ):
         early_stop = False
@@ -45,7 +45,7 @@ class EarlyStopModelSaver:
             print("[EARLY STOP] min_loss {0:.5f} is decreased to {1:.5f}".format(
                 self.min_train_loss, train_loss
             ))
-            self.model_save(validation_episode_reward_avg, num_tasks, env_name, n_episode, current_time, q)
+            self.model_save(test_episode_reward_avg, num_tasks, env_name, n_episode, current_time, q)
             self.min_train_loss = train_loss
             self.counter = 0
         else:
@@ -61,13 +61,13 @@ class EarlyStopModelSaver:
                 ))
         return early_stop
 
-    def model_save(self, validation_episode_reward_avg, num_tasks, env_name, n_episode, current_time, q):
+    def model_save(self, test_episode_reward_avg, num_tasks, env_name, n_episode, current_time, q):
         if self.model_filename_saved is not None:
             os.remove(self.model_filename_saved)
 
         filename = "dqn_{0}_{1}_{2}_{3:5.3f}_{4}.pth".format(
             num_tasks, env_name,
-            current_time, validation_episode_reward_avg, n_episode
+            current_time, test_episode_reward_avg, n_episode
         )
         filename = os.path.join(MODEL_DIR, filename)
         torch.save(q.state_dict(), filename)
@@ -83,9 +83,9 @@ class EarlyStopModelSaver:
 
 
 class DQN:
-    def __init__(self, env, validation_env, config, env_config, use_wandb):
+    def __init__(self, env, test_env, config, env_config, use_wandb):
         self.env = env
-        self.validation_env = validation_env
+        self.test_env = test_env
         self.use_wandb = use_wandb
 
         self.env_name = ENV_NAME
@@ -123,8 +123,8 @@ class DQN:
         self.epsilon_end = config["epsilon_end"]
         self.epsilon_final_scheduled_percent = config["epsilon_final_scheduled_percent"]
         self.print_episode_interval = config["print_episode_interval"]
-        self.train_num_episodes_before_next_validation = config["train_num_episodes_before_next_validation"]
-        self.validation_num_episodes = config["validation_num_episodes"]
+        self.train_num_episodes_before_next_test = config["train_num_episodes_before_next_test"]
+        self.test_num_episodes = config["test_num_episodes"]
 
         self.epsilon_scheduled_last_episode = self.max_num_episodes * self.epsilon_final_scheduled_percent
 
@@ -158,7 +158,7 @@ class DQN:
 
         total_train_start_time = time.time()
 
-        validation_episode_reward_avg = 0.75
+        test_episode_reward_avg = 0.75
 
         is_terminated = False
 
@@ -203,16 +203,16 @@ class DQN:
                     "Elapsed Time: {}".format(total_training_time_str)
                 )
 
-            if n_episode % self.train_num_episodes_before_next_validation == 0:
-                validation_episode_reward_lst, validation_episode_reward_avg = self.validate()
+            if n_episode % self.train_num_episodes_before_next_test == 0:
+                test_episode_reward_lst, test_episode_reward_avg = self.test()
 
-                print("[Validation Episode Reward: {0}] Average: {1:.3f}".format(
-                    validation_episode_reward_lst, validation_episode_reward_avg
+                print("[Test Episode Reward: {0}] Average: {1:.3f}".format(
+                    test_episode_reward_lst, test_episode_reward_avg
                 ))
 
                 is_terminated = self.early_stop_model_saver.check(
                     train_loss=loss,
-                    validation_episode_reward_avg=validation_episode_reward_avg,
+                    test_episode_reward_avg=test_episode_reward_avg,
                     num_tasks=NUM_TASKS, env_name=ENV_NAME, current_time=self.current_time,
                     n_episode=n_episode, time_steps=self.time_steps, training_time_steps=self.training_time_steps,
                     q=self.q
@@ -220,11 +220,11 @@ class DQN:
 
             if self.use_wandb:
                 self.wandb.log({
-                    "[VALIDATE] Mean Episode Reward (Utilization)": validation_episode_reward_avg,
+                    "[TEST] Mean Episode Reward (Utilization, {0} Episodes)".format(self.test_num_episodes): test_episode_reward_avg,
                     "[TRAIN] Episode Reward (Utilization)": episode_reward,
                     "Loss": loss if loss != 0.0 else 0.0,
                     "Epsilon": epsilon,
-                    "Episode": n_episode,
+                    "Training Episode": n_episode,
                     "Replay buffer": self.replay_buffer.size(),
                     "Training Steps": self.training_time_steps,
                     "Episodes per second": n_episode / total_training_time
@@ -268,20 +268,20 @@ class DQN:
 
         return loss.item()
 
-    def validate(self):
-        episode_reward_lst = np.zeros(shape=(self.validation_num_episodes,), dtype=float)
+    def test(self):
+        episode_reward_lst = np.zeros(shape=(self.test_num_episodes,), dtype=float)
 
-        for i in range(self.validation_num_episodes):
+        for i in range(self.test_num_episodes):
             episode_reward = 0
 
-            observation, info = self.validation_env.reset()
+            observation, info = self.test_env.reset()
 
             done = False
 
             while not done:
                 action = self.q.get_action(observation, epsilon=0.0, action_mask=info["ACTION_MASK"])
 
-                next_observation, reward, terminated, truncated, info = self.validation_env.step(action)
+                next_observation, reward, terminated, truncated, info = self.test_env.step(action)
 
                 episode_reward += reward
                 observation = next_observation
@@ -294,13 +294,13 @@ class DQN:
 
 def main():
     env = TaskAllocationEnv(env_config=env_config)
-    validation_env = deepcopy(env)
+    test_env = deepcopy(env)
 
     print("*" * 100)
 
     use_wandb = True
     dqn = DQN(
-        env=env, validation_env=validation_env, config=dqn_config, env_config=env_config, use_wandb=use_wandb
+        env=env, test_env=test_env, config=dqn_config, env_config=env_config, use_wandb=use_wandb
     )
     dqn.train_loop()
 
