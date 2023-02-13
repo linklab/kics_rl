@@ -170,7 +170,7 @@ class DQN:
 
         # state_action_values.shape: torch.Size([32, 1])
         q_out = self.q(observations)
-        q_values = q_out.gather(dim=1, index=actions)
+        q_values = q_out.gather(dim=-1, index=actions)
 
         with torch.no_grad():
             q_prime_out = self.target_q(next_observations)

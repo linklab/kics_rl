@@ -125,6 +125,7 @@ class DQN:
         self.print_episode_interval = config["print_episode_interval"]
         self.train_num_episodes_before_next_test = config["train_num_episodes_before_next_test"]
         self.test_num_episodes = config["test_num_episodes"]
+        self.double_dqn = config["double_dqn"]
 
         self.epsilon_scheduled_last_episode = self.max_num_episodes * self.epsilon_final_scheduled_percent
 
@@ -194,8 +195,10 @@ class DQN:
 
             if n_episode % self.print_episode_interval == 0:
                 print(
-                    "[Episode {:3,}, Time Steps {:6,}]".format(n_episode, self.time_steps),
-                    "Episode Reward: {:>5.2f},".format(episode_reward),
+                    "[Episode {0:4,}/{1:5,}, Time Steps {2:6,}]".format(
+                        n_episode, self.max_num_episodes, self.time_steps
+                    ),
+                    "Episode Reward: {:>4.2f},".format(episode_reward),
                     "Replay buffer: {:>6,},".format(self.replay_buffer.size()),
                     "Loss: {:.6f},".format(loss),
                     "Epsilon: {:4.2f},".format(epsilon),
@@ -210,13 +213,14 @@ class DQN:
                     test_episode_reward_lst, test_episode_reward_avg
                 ))
 
-                is_terminated = self.early_stop_model_saver.check(
-                    train_loss=loss,
-                    test_episode_reward_avg=test_episode_reward_avg,
-                    num_tasks=NUM_TASKS, env_name=ENV_NAME, current_time=self.current_time,
-                    n_episode=n_episode, time_steps=self.time_steps, training_time_steps=self.training_time_steps,
-                    q=self.q
-                )
+                if n_episode > self.max_num_episodes / 100:
+                    is_terminated = self.early_stop_model_saver.check(
+                        train_loss=loss,
+                        test_episode_reward_avg=test_episode_reward_avg,
+                        num_tasks=NUM_TASKS, env_name=ENV_NAME, current_time=self.current_time,
+                        n_episode=n_episode, time_steps=self.time_steps, training_time_steps=self.training_time_steps,
+                        q=self.q
+                    )
 
             if self.use_wandb:
                 self.wandb.log({
@@ -246,17 +250,29 @@ class DQN:
         observations, actions, next_observations, rewards, dones, action_masks = batch
 
         q_out = self.q(observations)
-        q_values = q_out.gather(dim=1, index=actions)
+        q_values = q_out.gather(dim=-1, index=actions)
 
         with torch.no_grad():
-            q_prime_out = self.target_q(next_observations)
+            if self.double_dqn:
+                q_prime_out = self.q(next_observations)
+                q_prime_out = q_prime_out.masked_fill(action_masks, -float('inf'))
+                # target_argmax_action.shape: [256, 1]
+                target_argmax_action = torch.argmax(q_prime_out, dim=-1, keepdim=True)
 
-            q_prime_out = q_prime_out.masked_fill(action_masks, -float('inf'))
+                q_prime_out = self.target_q(next_observations)
+                next_q_values = q_prime_out.gather(dim=-1, index=target_argmax_action)
+                next_q_values[dones] = 0.0
 
-            max_q_prime = q_prime_out.max(dim=-1, keepdim=True).values
-            max_q_prime[dones] = 0.0
+                targets = rewards + self.gamma * next_q_values
+            else:
+                q_prime_out = self.target_q(next_observations)
 
-            targets = rewards + self.gamma * max_q_prime
+                q_prime_out = q_prime_out.masked_fill(action_masks, -float('inf'))
+
+                max_q_prime = q_prime_out.max(dim=-1, keepdim=True).values
+                max_q_prime[dones] = 0.0
+
+                targets = rewards + self.gamma * max_q_prime
 
         loss = F.mse_loss(targets.detach(), q_values)
         self.optimizer.zero_grad()
