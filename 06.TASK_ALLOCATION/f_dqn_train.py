@@ -213,7 +213,7 @@ class DQN:
                     test_episode_reward_lst, test_episode_reward_avg
                 ))
 
-                if n_episode > self.max_num_episodes / 100:
+                if n_episode > self.replay_buffer_size:
                     is_terminated = self.early_stop_model_saver.check(
                         train_loss=loss,
                         test_episode_reward_avg=test_episode_reward_avg,

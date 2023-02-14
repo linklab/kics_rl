@@ -13,7 +13,7 @@ STATIC_TASK_RESOURCE_DEMAND_SAMPLE = [
     [84, 98],
 ]
 
-NUM_TASKS = 50
+NUM_TASKS = 100
 
 env_config = {
     "num_tasks": NUM_TASKS,                                             # 대기하는 태스크 개수
