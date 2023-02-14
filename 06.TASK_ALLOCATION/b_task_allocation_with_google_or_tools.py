@@ -38,14 +38,14 @@ def solve_by_or_tool(num_tasks, num_resources, task_demands, resource_capacity):
                 for j in range(num_resources):
                     selected_tasks_demand[j] += task_demands[i][j]
 
-            print("Task {0} [{1:>3},{2:>3}] is selected with value = {3} ({4}, {5})".format(
-                i, task_demands[i][0], task_demands[i][1], xs[i].solution_value(),
-                selected_tasks_demand[0], selected_tasks_demand[1]
-            ))
-        print("Utilization: ({0} + {1}) / ({2} + {3}) = {4}".format(
-            selected_tasks_demand[0], selected_tasks_demand[1], resource_capacity[0], resource_capacity[1],
-            sum(selected_tasks_demand) / sum(resource_capacity)
-        ))
+        #     print("Task {0} [{1:>3},{2:>3}] is selected with value = {3} ({4}, {5})".format(
+        #         i, task_demands[i][0], task_demands[i][1], xs[i].solution_value(),
+        #         selected_tasks_demand[0], selected_tasks_demand[1]
+        #     ))
+        # print("Utilization: ({0} + {1}) / ({2} + {3}) = {4}".format(
+        #     selected_tasks_demand[0], selected_tasks_demand[1], resource_capacity[0], resource_capacity[1],
+        #     sum(selected_tasks_demand) / sum(resource_capacity)
+        # ))
     else:
         print("Solver status: ", status)
 
