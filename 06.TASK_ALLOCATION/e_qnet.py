@@ -63,11 +63,15 @@ Transition = collections.namedtuple(
 
 class ReplayBuffer:
     def __init__(self, capacity, device):
+        self.capacity = capacity
         self.buffer = collections.deque(maxlen=capacity)
         self.device = device
 
     def size(self):
         return len(self.buffer)
+
+    def is_full(self):
+        return self.size() >= self.capacity
 
     def append(self, transition: Transition) -> None:
         self.buffer.append(transition)
