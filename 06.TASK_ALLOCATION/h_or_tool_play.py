@@ -25,6 +25,7 @@ def main(num_episodes):
 
         or_tool_solution = solve_by_or_tool(
             num_tasks=NUM_TASKS, num_resources=2,
+            task_value=env.TASK_VALUE,
             task_demands=env.TASK_RESOURCE_DEMAND,
             resource_capacity=env.INITIAL_RESOURCES_CAPACITY
         )

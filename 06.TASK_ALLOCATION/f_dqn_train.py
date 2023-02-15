@@ -130,8 +130,8 @@ class DQN:
         self.epsilon_scheduled_last_episode = self.max_num_episodes * self.epsilon_final_scheduled_percent
 
         # network
-        self.q = QNet(n_features=(NUM_TASKS + 1) * 3, n_actions=NUM_TASKS, device=DEVICE)
-        self.target_q = QNet(n_features=(NUM_TASKS + 1) * 3, n_actions=NUM_TASKS, device=DEVICE)
+        self.q = QNet(n_features=(NUM_TASKS + 1) * 4, n_actions=NUM_TASKS, device=DEVICE)
+        self.target_q = QNet(n_features=(NUM_TASKS + 1) * 4, n_actions=NUM_TASKS, device=DEVICE)
 
         self.target_q.load_state_dict(self.q.state_dict())
         self.optimizer = optim.Adam(self.q.parameters(), lr=self.learning_rate)
@@ -158,8 +158,8 @@ class DQN:
         loss = 0.0
 
         total_train_start_time = time.time()
-
-        test_episode_reward_avg = 0.75
+        test_episode_reward_avg = None
+        test_total_value_avg = None
 
         is_terminated = False
 
@@ -207,10 +207,14 @@ class DQN:
                 )
 
             if n_episode % self.train_num_episodes_before_next_test == 0:
-                test_episode_reward_lst, test_episode_reward_avg = self.test()
+                test_episode_reward_lst, test_episode_reward_avg, test_total_value_lst, test_total_value_avg = \
+                    self.test()
 
                 print("[Test Episode Reward: {0}] Average: {1:.3f}".format(
                     test_episode_reward_lst, test_episode_reward_avg
+                ))
+                print("[Test Total Value: {0}] Average: {1:.3f}".format(
+                    test_total_value_lst, test_total_value_avg
                 ))
 
                 if self.replay_buffer.is_full():
@@ -224,8 +228,9 @@ class DQN:
 
             if self.use_wandb:
                 self.wandb.log({
-                    "[TEST] Mean Episode Reward (Utilization, {0} Episodes)".format(self.test_num_episodes): test_episode_reward_avg,
-                    "[TRAIN] Episode Reward (Utilization)": episode_reward,
+                    "[TEST] Mean Episode Reward ({0} Episodes)".format(self.test_num_episodes): test_episode_reward_avg,
+                    "[TEST] Mean Total Value ({0} Episodes)".format(self.test_num_episodes): test_total_value_avg,
+                    "[TRAIN] Episode Reward (Total Value)": episode_reward,
                     "[TRAIN] Loss": loss if loss != 0.0 else 0.0,
                     "[TRAIN] Epsilon": epsilon,
                     "[TRAIN] Replay buffer": self.replay_buffer.size(),
@@ -286,6 +291,7 @@ class DQN:
 
     def test(self):
         episode_reward_lst = np.zeros(shape=(self.test_num_episodes,), dtype=float)
+        total_value_lst = np.zeros(shape=(self.test_num_episodes,), dtype=float)
 
         for i in range(self.test_num_episodes):
             episode_reward = 0
@@ -304,8 +310,9 @@ class DQN:
                 done = terminated or truncated
 
             episode_reward_lst[i] = episode_reward
+            total_value_lst[i] = info["VALUE_ALLOCATED"]
 
-        return episode_reward_lst, np.average(episode_reward_lst)
+        return episode_reward_lst, np.average(episode_reward_lst), total_value_lst, np.average(total_value_lst)
 
 
 def main():

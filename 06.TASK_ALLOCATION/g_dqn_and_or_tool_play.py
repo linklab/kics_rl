@@ -41,7 +41,7 @@ def play(env, q, num_episodes):
             done = terminated or truncated
 
         rl_duration = datetime.now() - rl_start_time
-        rl_episode_reward_lst[i] = episode_reward
+        rl_episode_reward_lst[i] = info["VALUE_ALLOCATED"]
         rl_duration_lst.append(rl_duration)
         print("*** RL RESULT ***")
         print("EPISODE_STEPS: {1:3d}, EPISODE REWARD: {2:5.3f}, INFO:{3}".format(
@@ -53,6 +53,7 @@ def play(env, q, num_episodes):
 
         or_tool_solution = solve_by_or_tool(
             num_tasks=NUM_TASKS, num_resources=2,
+            task_value=env.TASK_VALUE,
             task_demands=env.TASK_RESOURCE_DEMAND,
             resource_capacity=env.INITIAL_RESOURCES_CAPACITY
         )
@@ -86,7 +87,7 @@ def main(num_episodes, env_name):
 
     print("*" * 100)
 
-    q = QNet(n_features=(NUM_TASKS + 1) * 3, n_actions=NUM_TASKS, device=DEVICE)
+    q = QNet(n_features=(NUM_TASKS + 1) * 4, n_actions=NUM_TASKS, device=DEVICE)
 
     model_params = torch.load(
         os.path.join(MODEL_DIR, "dqn_{0}_{1}_latest.pth".format(NUM_TASKS, env_name))
