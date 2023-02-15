@@ -206,7 +206,7 @@ class DQN:
                     "Elapsed Time: {}".format(total_training_time_str)
                 )
 
-            if n_episode % self.train_num_episodes_before_next_test == 0:
+            if epsilon < 0.5 and n_episode % self.train_num_episodes_before_next_test == 0:
                 test_episode_reward_lst, test_episode_reward_avg, test_total_value_lst, test_total_value_avg = \
                     self.test()
 
@@ -217,14 +217,13 @@ class DQN:
                     test_total_value_lst, test_total_value_avg
                 ))
 
-                if self.replay_buffer.is_full():
-                    is_terminated = self.early_stop_model_saver.check(
-                        train_loss=loss,
-                        test_episode_reward_avg=test_episode_reward_avg,
-                        num_tasks=NUM_TASKS, env_name=ENV_NAME, current_time=self.current_time,
-                        n_episode=n_episode, time_steps=self.time_steps, training_time_steps=self.training_time_steps,
-                        q=self.q
-                    )
+                is_terminated = self.early_stop_model_saver.check(
+                    train_loss=loss,
+                    test_episode_reward_avg=test_episode_reward_avg,
+                    num_tasks=NUM_TASKS, env_name=ENV_NAME, current_time=self.current_time,
+                    n_episode=n_episode, time_steps=self.time_steps, training_time_steps=self.training_time_steps,
+                    q=self.q
+                )
 
             if self.use_wandb:
                 self.wandb.log({
