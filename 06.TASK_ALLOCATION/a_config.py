@@ -19,7 +19,7 @@ env_config = {
     "num_tasks": NUM_TASKS,                                             # 대기하는 태스크 개수
     "use_static_task_resource_demand": False,                           # 항상 미리 정해 놓은 태스크 자원 요구량 사용 유무
     "use_same_task_resource_demand": False,                             # 각 에피소드 초기에 동일한 태스크 자원 요구량 사용 유무
-    "low_demand_resource_at_task": [1, 1],                              # 태스크의 각 자원 최소 요구량
+    "low_demand_resource_at_task": [50, 50],                              # 태스크의 각 자원 최소 요구량
     "high_demand_resource_at_task": [100, 100],                         # 태스크의 각 자원 최대 요구량
     "initial_resources_capacity": [NUM_TASKS * 30, NUM_TASKS * 30],     # 초기 자원 용량
 }
@@ -45,7 +45,7 @@ dqn_config = {
     "epsilon_end": 0.01,                                # Epsilon 최종 값
     "epsilon_final_scheduled_percent": 0.75,            # Epsilon 최종 값으로 스케줄되는 마지막 에피소드 비율
     "print_episode_interval": 10,                       # Episode 통계 출력에 관한 에피소드 간격
-    "train_num_episodes_before_next_test": 200,         # 검증 사이 마다 각 훈련 episode 간격
+    "train_num_episodes_before_next_test": 20,         # 검증 사이 마다 각 훈련 episode 간격
     "test_num_episodes": 30,                            # 검증에 수행하는 에피소드 횟수
     "early_stop_patience": NUM_TASKS,                   # episode_reward가 개선될 때까지 기다리는 기간
     "double_dqn": True

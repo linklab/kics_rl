@@ -29,6 +29,7 @@ class QNet(nn.Module):
         self.fc2 = nn.Linear(128, 128)
         self.norm2 = nn.LayerNorm(normalized_shape=128)
         self.fc3 = nn.Linear(128, n_actions)
+        self.norm3 = nn.LayerNorm(normalized_shape=n_actions)
         self.device = device
         self.to(device)
 
@@ -37,8 +38,11 @@ class QNet(nn.Module):
             x = torch.tensor(x, dtype=torch.float32, device=self.device)
         x = F.leaky_relu(self.norm1(self.fc1(x)))
         x = F.leaky_relu(self.norm2(self.fc2(x)))
+        x = self.norm3(self.fc3(x))
+
+        # x = F.leaky_relu(self.fc1(x))
+        # x = F.leaky_relu(self.fc2(x))
         # x = F.sigmoid(self.fc3(x))
-        x = self.fc3(x)
 
         return x
 
