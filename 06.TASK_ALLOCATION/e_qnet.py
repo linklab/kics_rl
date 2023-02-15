@@ -37,7 +37,9 @@ class QNet(nn.Module):
             x = torch.tensor(x, dtype=torch.float32, device=self.device)
         x = F.leaky_relu(self.norm1(self.fc1(x)))
         x = F.leaky_relu(self.norm2(self.fc2(x)))
-        x = F.sigmoid(self.fc3(x))
+        # x = F.sigmoid(self.fc3(x))
+        x = self.fc3(x)
+
         return x
 
     def get_action(self, obs, epsilon, action_mask):

@@ -146,10 +146,10 @@ class TaskAllocationEnv(gym.Env):
         self.total_allocated = self.total_allocated + cpu_step + ram_step
 
         unavailable_tasks = np.where(
-            (self.internal_state[:-1, 1] == 0.0) |
-            (self.internal_state[:-1, 1] > self.internal_state[-1][1]) |
-            (self.internal_state[:-1, 2] == 0.0) |
-            (self.internal_state[:-1, 2] > self.internal_state[-1][2])
+            (self.internal_state[:-1, 1] == 0.0) |                          # CPU를 이미 할당을 했거나
+            (self.internal_state[:-1, 1] > self.internal_state[-1][1]) |    # CPU Demand가 남아 있는 CPU 자원보다 크거나
+            (self.internal_state[:-1, 2] == 0.0) |                          # RAM을 이미 할당을 했거나
+            (self.internal_state[:-1, 2] > self.internal_state[-1][2])      # RAM Demand가 남아 있는 RAM 자원보다 크거나
         )[0]
 
         if len(unavailable_tasks) == self.NUM_TASKS:
@@ -175,7 +175,7 @@ class TaskAllocationEnv(gym.Env):
 
     def get_reward(self):
         reward = self.resources_step / self.TOTAL_RESOURCE_CAPACITY
-
+        assert reward < 1.0
         return reward
 
     def fill_info(self, info):

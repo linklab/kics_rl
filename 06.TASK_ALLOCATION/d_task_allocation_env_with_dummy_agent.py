@@ -3,7 +3,7 @@ import random
 import numpy as np
 
 from c_task_allocation_env import TaskAllocationEnv
-
+from a_config import env_config
 
 class Dummy_Agent:
     def __init__(self, num_tasks):
@@ -18,14 +18,14 @@ class Dummy_Agent:
 
 def main():
     print("START RUN!!!")
-    env_config = {
-        "num_tasks": 10,  # 대기하는 태스크 개수
-        "use_static_task_resource_demand": False,  # 항상 미리 정해 놓은 태스크 자원 요구량 사용 유무
-        "use_same_task_resource_demand": False,  # 각 에피소드 초기에 동일한 태스크 자원 요구량 사용 유무
-        "low_demand_resource_at_task": [1, 1],  # 태스크의 각 자원 최소 요구량
-        "high_demand_resource_at_task": [100, 100],  # 태스크의 각 자원 최대 요구량
-        "initial_resources_capacity": [250, 250],  # 초기 자원 용량
-    }
+    # env_config = {
+    #     "num_tasks": 10,  # 대기하는 태스크 개수
+    #     "use_static_task_resource_demand": False,  # 항상 미리 정해 놓은 태스크 자원 요구량 사용 유무
+    #     "use_same_task_resource_demand": False,  # 각 에피소드 초기에 동일한 태스크 자원 요구량 사용 유무
+    #     "low_demand_resource_at_task": [1, 1],  # 태스크의 각 자원 최소 요구량
+    #     "high_demand_resource_at_task": [100, 100],  # 태스크의 각 자원 최대 요구량
+    #     "initial_resources_capacity": [250, 250],  # 초기 자원 용량
+    # }
     env = TaskAllocationEnv(env_config=env_config)
 
     agent = Dummy_Agent(env.NUM_TASKS)
