@@ -61,8 +61,8 @@ dqn_config = {
     "epsilon_end": 0.01,                                # Epsilon 최종 값
     "epsilon_final_scheduled_percent": 0.75,            # Epsilon 최종 값으로 스케줄되는 마지막 에피소드 비율
     "print_episode_interval": 10,                       # Episode 통계 출력에 관한 에피소드 간격
-    "train_num_episodes_before_next_test": 200,         # 검증 사이 마다 각 훈련 episode 간격
-    "test_num_episodes": 30,                            # 검증에 수행하는 에피소드 횟수
+    "train_num_episodes_before_next_test": 500,         # 검증 사이 마다 각 훈련 episode 간격
+    "test_num_episodes": 50,                            # 검증에 수행하는 에피소드 횟수
     "early_stop_patience": NUM_TASKS,                   # episode_reward가 개선될 때까지 기다리는 기간
     "double_dqn": True
 }

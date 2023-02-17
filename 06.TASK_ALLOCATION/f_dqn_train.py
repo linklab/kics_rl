@@ -158,8 +158,8 @@ class DQN:
         loss = 0.0
 
         total_train_start_time = time.time()
-        test_episode_reward_avg = None
-        test_total_value_avg = None
+        test_episode_reward_avg = 0.0
+        test_total_value_avg = 0.0
 
         is_terminated = False
 
@@ -206,7 +206,8 @@ class DQN:
                     "Elapsed Time: {}".format(total_training_time_str)
                 )
 
-            if epsilon <= self.epsilon_end and n_episode % self.train_num_episodes_before_next_test == 0:
+            # print(epsilon, self.epsilon_end, n_episode, self.train_num_episodes_before_next_test, "!!!")
+            if epsilon <= self.epsilon_end + 1e-6 and n_episode % self.train_num_episodes_before_next_test == 0:
                 test_episode_reward_lst, test_episode_reward_avg, test_total_value_lst, test_total_value_avg = \
                     self.test()
 
