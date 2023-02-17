@@ -34,6 +34,8 @@ def main():
     episode_step = 0
     done = False
     print("[Step: RESET] Info: {0}".format(info))
+    print(info['INTERNAL_STATE'].flatten())
+
     while not done:
         action = agent.get_action(observation, info["ACTION_MASK"])
         next_observation, reward, terminated, truncated, info = env.step(action)
@@ -44,6 +46,7 @@ def main():
             episode_step, observation.shape, action, next_observation.shape,
             reward, terminated, truncated, info
         ))
+        print(info['INTERNAL_STATE'].flatten())
         observation = next_observation
         done = terminated or truncated
 

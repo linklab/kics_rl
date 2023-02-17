@@ -11,7 +11,7 @@ import torch
 from a_config import env_config, dqn_config, ENV_NAME, NUM_TASKS
 from c_task_allocation_env import TaskAllocationEnv
 from e_qnet import QNet, MODEL_DIR
-from b_task_allocation_with_google_or_tools import solve_by_or_tool
+from b_task_allocation_with_google_or_tools import solve
 
 DEVICE = torch.device("cpu")
 
@@ -51,9 +51,9 @@ def play(env, q, num_episodes):
         print("*** GOOGLE OR TOOL RESULT ***")
         or_tool_start_time = datetime.now()
 
-        or_tool_solution = solve_by_or_tool(
+        or_tool_solution = solve(
             num_tasks=NUM_TASKS, num_resources=2,
-            task_value=env.TASK_VALUE,
+            task_values=env.TASK_VALUES,
             task_demands=env.TASK_RESOURCE_DEMAND,
             resource_capacity=env.INITIAL_RESOURCES_CAPACITY
         )

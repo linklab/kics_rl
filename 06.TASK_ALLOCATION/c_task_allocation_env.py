@@ -3,8 +3,12 @@ import gymnasium as gym
 import numpy as np
 import copy
 import enum
-from a_config import STATIC_TASK_RESOURCE_DEMAND_SAMPLE, STATIC_TASK_VALUE_SAMPLE
 
+from gymnasium import spaces
+
+from a_config import STATIC_TASK_RESOURCE_DEMAND_SAMPLE, STATIC_TASK_VALUE_SAMPLE
+import random
+from datetime import datetime
 
 class DoneReasonType(enum.Enum):
     TYPE_FAIL_1 = "The Same Task Selected"
@@ -16,6 +20,8 @@ class DoneReasonType(enum.Enum):
 class TaskAllocationEnv(gym.Env):
     def __init__(self, env_config):
         super(TaskAllocationEnv, self).__init__()
+
+        random.seed(datetime.now().timestamp())
 
         self.internal_state = None
         self.actions_selected = None
@@ -46,12 +52,15 @@ class TaskAllocationEnv(gym.Env):
         self.USE_STATIC_TASK_RESOURCE_DEMAND = env_config["use_static_task_resource_demand"]
         self.USE_SAME_TASK_RESOURCE_DEMAND = env_config["use_same_task_resource_demand"]
 
+        self.action_space = spaces.Discrete(n=self.NUM_TASKS)
+        self.observation_space = spaces.Discrete(n=(self.NUM_TASKS + 1) * 4)
+
         self.CPU_RESOURCE_CAPACITY = self.INITIAL_RESOURCES_CAPACITY[0]
         self.RAM_RESOURCE_CAPACITY = self.INITIAL_RESOURCES_CAPACITY[1]
         self.TOTAL_RESOURCE_CAPACITY = sum(self.INITIAL_RESOURCES_CAPACITY)
 
         self.TASK_RESOURCE_DEMAND = None
-        self.TASK_VALUE = None
+        self.TASK_VALUES = None
 
         print("{0:>50}: {1}".format("NUM_TASKS", self.NUM_TASKS))
         print("{0:>50}: {1}".format(
@@ -81,34 +90,34 @@ class TaskAllocationEnv(gym.Env):
 
         if self.USE_STATIC_TASK_RESOURCE_DEMAND:
             self.TASK_RESOURCE_DEMAND = STATIC_TASK_RESOURCE_DEMAND_SAMPLE
-            self.TASK_VALUE = STATIC_TASK_VALUE_SAMPLE
+            self.TASK_VALUES = STATIC_TASK_VALUE_SAMPLE
         else:
             if self.USE_SAME_TASK_RESOURCE_DEMAND:
                 if self.TASK_RESOURCE_DEMAND is None:
                     self.TASK_RESOURCE_DEMAND = np.zeros(shape=(self.NUM_TASKS, 2))
-                    self.TASK_VALUE = np.zeros(shape=(self.NUM_TASKS,))
+                    self.TASK_VALUES = np.zeros(shape=(self.NUM_TASKS,))
                     for task_idx in range(self.NUM_TASKS):
                         self.TASK_RESOURCE_DEMAND[task_idx] = np.random.randint(
                             low=self.MIN_RESOURCE_DEMAND_AT_TASK, high=self.MAX_RESOURCE_DEMAND_AT_TASK, size=(2,)
                         )
-                        self.TASK_VALUE[task_idx] = np.random.randint(
+                        self.TASK_VALUES[task_idx] = np.random.randint(
                             low=self.MIN_VALUE_AT_TASK, high=self.MAX_VALUE_AT_TASK, size=(1,)
                         )
                     # self.TASK_RESOURCE_DEMAND = np.sort(self.TASK_RESOURCE_DEMAND, axis=0)
             else:
                 self.TASK_RESOURCE_DEMAND = np.zeros(shape=(self.NUM_TASKS, 2))
-                self.TASK_VALUE = np.zeros(shape=(self.NUM_TASKS,))
+                self.TASK_VALUES = np.zeros(shape=(self.NUM_TASKS,))
                 for task_idx in range(self.NUM_TASKS):
                     self.TASK_RESOURCE_DEMAND[task_idx] = np.random.randint(
                         low=self.MIN_RESOURCE_DEMAND_AT_TASK, high=self.MAX_RESOURCE_DEMAND_AT_TASK, size=(2, )
                     )
-                    self.TASK_VALUE[task_idx] = np.random.randint(
+                    self.TASK_VALUES[task_idx] = np.random.randint(
                         low=self.MIN_VALUE_AT_TASK, high=self.MAX_VALUE_AT_TASK, size=(1,)
                     )
                 # self.TASK_RESOURCE_DEMAND = np.sort(self.TASK_RESOURCE_DEMAND, axis=0)
 
         state[:-1, 2:] = self.TASK_RESOURCE_DEMAND
-        state[:-1, 1] = self.TASK_VALUE
+        state[:-1, 1] = self.TASK_VALUES
 
         self.total_value = state[:-1, 1].sum()
 

@@ -206,7 +206,7 @@ class DQN:
                     "Elapsed Time: {}".format(total_training_time_str)
                 )
 
-            if epsilon < 0.5 and n_episode % self.train_num_episodes_before_next_test == 0:
+            if n_episode % self.train_num_episodes_before_next_test == 0:
                 test_episode_reward_lst, test_episode_reward_avg, test_total_value_lst, test_total_value_avg = \
                     self.test()
 

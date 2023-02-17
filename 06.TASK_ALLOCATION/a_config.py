@@ -2,15 +2,15 @@ ENV_NAME = "TASKS_ALLOCATION"
 
 STATIC_TASK_RESOURCE_DEMAND_SAMPLE = [
     [21, 21],
+    [79, 89],
     [44, 25],
     [48, 32],
+    [84, 98],
     [44, 47],
     [44, 49],
     [43, 53],
-    [65, 64],
     [73, 69],
-    [79, 89],
-    [84, 98],
+    [65, 64],
 ]
 
 STATIC_TASK_VALUE_SAMPLE = [
@@ -27,7 +27,7 @@ STATIC_TASK_VALUE_SAMPLE = [
 ]
 
 
-NUM_TASKS = 100
+NUM_TASKS = 20
 
 env_config = {
     "num_tasks": NUM_TASKS,                                             # 대기하는 태스크 개수
@@ -35,8 +35,8 @@ env_config = {
     "use_same_task_resource_demand": False,                             # 각 에피소드 초기에 동일한 태스크 자원 요구량 사용 유무
     "low_demand_resource_at_task": [50, 50],                            # 태스크의 각 자원 최소 요구량
     "high_demand_resource_at_task": [100, 100],                         # 태스크의 각 자원 최대 요구량
-    "low_value_at_task": 1,                                             # 태스크의 각 자원 최소 요구량
-    "high_value_at_task": 100,                                          # 태스크의 각 자원 최대 요구량
+    "low_value_at_task": 1,                                             # 태스크의 최소 값어치
+    "high_value_at_task": 100,                                          # 태스크의 최대 값어치
     "initial_resources_capacity": [NUM_TASKS * 30, NUM_TASKS * 30],     # 초기 자원 용량
 }
 
