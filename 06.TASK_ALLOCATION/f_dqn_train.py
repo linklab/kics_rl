@@ -32,27 +32,27 @@ class EarlyStopModelSaver:
         """
         self.patience = patience
         self.counter = 0
-        self.min_train_loss = np.inf
+        self.max_test_episode_reward = -np.inf
         self.model_filename_saved = None
 
     def check(
-            self, train_loss, test_episode_reward_avg, num_tasks, env_name, current_time,
+            self, test_episode_reward_avg, num_tasks, env_name, current_time,
             n_episode, time_steps, training_time_steps, q
     ):
         early_stop = False
 
-        if train_loss <= self.min_train_loss:
-            print("[EARLY STOP] min_loss {0:.5f} is decreased to {1:.5f}".format(
-                self.min_train_loss, train_loss
+        if test_episode_reward_avg >= self.max_test_episode_reward:
+            print("[EARLY STOP] test_episode_reward {0:.5f} is increased to {1:.5f}".format(
+                self.max_test_episode_reward, test_episode_reward_avg
             ))
             self.model_save(test_episode_reward_avg, num_tasks, env_name, n_episode, current_time, q)
-            self.min_train_loss = train_loss
+            self.max_test_episode_reward = test_episode_reward_avg
             self.counter = 0
         else:
             self.counter += 1
             if self.counter < self.patience:
-                print("[EARLY STOP] COUNTER: {0} (loss/min_loss={1:.5f}/{2:.5f})".format(
-                    self.counter, train_loss, self.min_train_loss
+                print("[EARLY STOP] COUNTER: {0} (test_episode_reward/max_test_episode_reward={1:.5f}/{2:.5f})".format(
+                    self.counter, test_episode_reward_avg, self.max_test_episode_reward
                 ))
             else:
                 early_stop = True
@@ -206,7 +206,7 @@ class DQN:
                     "Elapsed Time: {}".format(total_training_time_str)
                 )
 
-            if n_episode % self.train_num_episodes_before_next_test == 0:
+            if epsilon <= self.epsilon_end and n_episode % self.train_num_episodes_before_next_test == 0:
                 test_episode_reward_lst, test_episode_reward_avg, test_total_value_lst, test_total_value_avg = \
                     self.test()
 
@@ -218,7 +218,6 @@ class DQN:
                 ))
 
                 is_terminated = self.early_stop_model_saver.check(
-                    train_loss=loss,
                     test_episode_reward_avg=test_episode_reward_avg,
                     num_tasks=NUM_TASKS, env_name=ENV_NAME, current_time=self.current_time,
                     n_episode=n_episode, time_steps=self.time_steps, training_time_steps=self.training_time_steps,

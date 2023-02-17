@@ -27,7 +27,7 @@ STATIC_TASK_VALUE_SAMPLE = [
 ]
 
 
-NUM_TASKS = 20
+NUM_TASKS = 10
 
 env_config = {
     "num_tasks": NUM_TASKS,                                             # 대기하는 태스크 개수

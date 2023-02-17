@@ -8,6 +8,9 @@ from matplotlib import pyplot as plt
 from tensordict import TensorDict
 from torchrl.envs.libs.gym import GymEnv
 
+import torchrl
+print(torchrl.__version__)
+
 for env_name in GymEnv.available_envs:
     print(env_name)
 
