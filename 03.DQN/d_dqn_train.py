@@ -44,7 +44,7 @@ class DQN:
         self.epsilon_final_scheduled_percent = config["epsilon_final_scheduled_percent"]
         self.print_episode_interval = config["print_episode_interval"]
         self.train_num_episodes_before_next_test = config["train_num_episodes_before_next_test"]
-        self.test_num_episodes = config["test_num_episodes"]
+        self.validation_num_episodes = config["validation_num_episodes"]
         self.episode_reward_avg_solved = config["episode_reward_avg_solved"]
 
         self.epsilon_scheduled_last_episode = self.max_num_episodes * self.epsilon_final_scheduled_percent
@@ -124,9 +124,9 @@ class DQN:
                 )
 
             if n_episode % self.train_num_episodes_before_next_test == 0:
-                test_episode_reward_lst, test_episode_reward_avg = self.test()
+                test_episode_reward_lst, test_episode_reward_avg = self.validate()
 
-                print("[Test Episode Reward: {0}] Average: {1:.3f}".format(
+                print("[ValidationEpisode Reward: {0}] Average: {1:.3f}".format(
                     test_episode_reward_lst, test_episode_reward_avg
                 ))
 
@@ -139,7 +139,7 @@ class DQN:
 
             if self.use_wandb:
                 self.wandb.log({
-                    "[TEST] Mean Episode Reward ({0} Episodes)".format(self.test_num_episodes): test_episode_reward_avg,
+                    "[TEST] Mean Episode Reward ({0} Episodes)".format(self.validation_num_episodes): test_episode_reward_avg,
                     "[TRAIN] Episode Reward": episode_reward,
                     "[TRAIN] Loss": loss if loss != 0.0 else 0.0,
                     "[TRAIN] Epsilon": epsilon,
@@ -217,10 +217,10 @@ class DQN:
             dst=os.path.join(MODEL_DIR, "dqn_{0}_latest.pth".format(self.env_name))
         )
 
-    def test(self):
-        episode_reward_lst = np.zeros(shape=(self.test_num_episodes,), dtype=float)
+    def validate(self):
+        episode_reward_lst = np.zeros(shape=(self.validation_num_episodes,), dtype=float)
 
-        for i in range(self.test_num_episodes):
+        for i in range(self.validation_num_episodes):
             episode_reward = 0
 
             observation, _ = self.test_env.reset()
@@ -261,7 +261,7 @@ def main():
         "epsilon_final_scheduled_percent": 0.75,    # Epsilon 최종 값으로 스케줄되는 마지막 에피소드 비율
         "print_episode_interval": 10,               # Episode 통계 출력에 관한 에피소드 간격
         "train_num_episodes_before_next_test": 50,                   # 검증 사이 마다 각 훈련 episode 간격
-        "test_num_episodes": 3,                     # 검증에 수행하는 에피소드 횟수
+        "validation_num_episodes": 3,                     # 검증에 수행하는 에피소드 횟수
         "episode_reward_avg_solved": 490,           # 훈련 종료를 위한 검증 에피소드 리워드의 Average
     }
 

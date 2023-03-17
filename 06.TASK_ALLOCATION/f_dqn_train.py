@@ -124,7 +124,7 @@ class DQN:
         self.epsilon_final_scheduled_percent = config["epsilon_final_scheduled_percent"]
         self.print_episode_interval = config["print_episode_interval"]
         self.train_num_episodes_before_next_test = config["train_num_episodes_before_next_test"]
-        self.test_num_episodes = config["test_num_episodes"]
+        self.validation_num_episodes = config["validation_num_episodes"]
         self.double_dqn = config["double_dqn"]
 
         self.epsilon_scheduled_last_episode = self.max_num_episodes * self.epsilon_final_scheduled_percent
@@ -209,12 +209,12 @@ class DQN:
             # print(epsilon, self.epsilon_end, n_episode, self.train_num_episodes_before_next_test, "!!!")
             if epsilon <= self.epsilon_end + 1e-6 and n_episode % self.train_num_episodes_before_next_test == 0:
                 test_episode_reward_lst, test_episode_reward_avg, test_total_value_lst, test_total_value_avg = \
-                    self.test()
+                    self.validate()
 
-                print("[Test Episode Reward: {0}] Average: {1:.3f}".format(
+                print("[ValidationEpisode Reward: {0}] Average: {1:.3f}".format(
                     test_episode_reward_lst, test_episode_reward_avg
                 ))
-                print("[Test Total Value: {0}] Average: {1:.3f}".format(
+                print("[ValidationTotal Value: {0}] Average: {1:.3f}".format(
                     test_total_value_lst, test_total_value_avg
                 ))
 
@@ -227,8 +227,8 @@ class DQN:
 
             if self.use_wandb:
                 self.wandb.log({
-                    "[TEST] Mean Episode Reward ({0} Episodes)".format(self.test_num_episodes): test_episode_reward_avg,
-                    "[TEST] Mean Total Value ({0} Episodes)".format(self.test_num_episodes): test_total_value_avg,
+                    "[TEST] Mean Episode Reward ({0} Episodes)".format(self.validation_num_episodes): test_episode_reward_avg,
+                    "[TEST] Mean Total Value ({0} Episodes)".format(self.validation_num_episodes): test_total_value_avg,
                     "[TRAIN] Episode Reward (Total Value)": episode_reward,
                     "[TRAIN] Loss": loss if loss != 0.0 else 0.0,
                     "[TRAIN] Epsilon": epsilon,
@@ -288,11 +288,11 @@ class DQN:
 
         return loss.item()
 
-    def test(self):
-        episode_reward_lst = np.zeros(shape=(self.test_num_episodes,), dtype=float)
-        total_value_lst = np.zeros(shape=(self.test_num_episodes,), dtype=float)
+    def validate(self):
+        episode_reward_lst = np.zeros(shape=(self.validation_num_episodes,), dtype=float)
+        total_value_lst = np.zeros(shape=(self.validation_num_episodes,), dtype=float)
 
-        for i in range(self.test_num_episodes):
+        for i in range(self.validation_num_episodes):
             episode_reward = 0
 
             observation, info = self.test_env.reset()

@@ -39,7 +39,7 @@ class REINFORCE:
         self.gamma = config["gamma"]
         self.print_episode_interval = config["print_episode_interval"]
         self.train_num_episodes_before_next_test = config["train_num_episodes_before_next_test"]
-        self.test_num_episodes = config["test_num_episodes"]
+        self.validation_num_episodes = config["validation_num_episodes"]
         self.episode_reward_avg_solved = config["episode_reward_avg_solved"]
 
         self.policy = Policy(n_features=3, n_actions=1)
@@ -101,9 +101,9 @@ class REINFORCE:
                 )
 
             if n_episode % self.train_num_episodes_before_next_test == 0:
-                test_episode_reward_lst, test_episode_reward_avg = self.test()
+                test_episode_reward_lst, test_episode_reward_avg = self.validate()
 
-                print("[Test Episode Reward: {0}] Average: {1:.3f}".format(
+                print("[ValidationEpisode Reward: {0}] Average: {1:.3f}".format(
                     test_episode_reward_lst, test_episode_reward_avg
                 ))
 
@@ -116,7 +116,7 @@ class REINFORCE:
 
             if self.use_wandb:
                 self.wandb.log({
-                    "[TEST] Mean Episode Reward ({0} Episodes)".format(self.test_num_episodes): test_episode_reward_avg,
+                    "[TEST] Mean Episode Reward ({0} Episodes)".format(self.validation_num_episodes): test_episode_reward_avg,
                     "[TRAIN] Episode Reward": episode_reward,
                     "[TRAIN] Policy Loss": policy_loss,
                     "[TRAIN] avg_mu_v": avg_mu_v,
@@ -206,10 +206,10 @@ class REINFORCE:
             dst=os.path.join(MODEL_DIR, "reinforce_{0}_latest.pth".format(self.env_name))
         )
 
-    def test(self):
-        episode_reward_lst = np.zeros(shape=(self.test_num_episodes,), dtype=float)
+    def validate(self):
+        episode_reward_lst = np.zeros(shape=(self.validation_num_episodes,), dtype=float)
 
-        for i in range(self.test_num_episodes):
+        for i in range(self.validation_num_episodes):
             episode_reward = 0
 
             observation, _ = self.test_env.reset()
@@ -245,7 +245,7 @@ def main():
         "gamma": 0.99,                              # 감가율
         "print_episode_interval": 20,               # Episode 통계 출력에 관한 에피소드 간격
         "train_num_episodes_before_next_test": 100,                  # 검증 사이 마다 각 훈련 episode 간격
-        "test_num_episodes": 3,               # 검증에 수행하는 에피소드 횟수
+        "validation_num_episodes": 3,               # 검증에 수행하는 에피소드 횟수
         "episode_reward_avg_solved": -200,          # 훈련 종료를 위한 테스트 에피소드 리워드의 Average
     }
 

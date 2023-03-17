@@ -1,8 +1,12 @@
+import os
+os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
+
 import gymnasium as gym; print(f"gym.__version__: {gym.__version__}")
 import numpy as np
 import matplotlib.pyplot as plt
 import random
 import time
+
 
 np.set_printoptions(precision=3)
 np.set_printoptions(suppress=True)
@@ -15,10 +19,10 @@ DESC = None
 
 
 class QTableAgent:
-    def __init__(self, env, num_episodes, num_test_episodes, alpha, gamma, epsilon):
+    def __init__(self, env, num_episodes, validation_num_episodes, alpha, gamma, epsilon):
         self.env = env
         self.num_episodes = num_episodes
-        self.num_test_episodes = num_test_episodes
+        self.validation_num_episodes = validation_num_episodes
         self.alpha = alpha
         self.gamma = gamma
         self.epsilon = epsilon
@@ -93,9 +97,9 @@ class QTableAgent:
             episode_td_error_list.append(episode_td_error / episode_step)
 
             if (episode + 1) % 10 == 0:
-                episode_reward_list_test, avg_episode_reward_test = self.test()
+                episode_reward_list_test, avg_episode_reward_test = self.validate()
                 print("[VALIDATION RESULTS: {0} Episodes, Episode Reward List: {1}] Episode Reward Mean: {2:.3f}".format(
-                    self.num_test_episodes, episode_reward_list_test, avg_episode_reward_test
+                    self.validation_num_episodes, episode_reward_list_test, avg_episode_reward_test
                 ))
                 if avg_episode_reward_test == 1.0:
                     print("***** TRAINING DONE!!! *****")
@@ -104,12 +108,12 @@ class QTableAgent:
 
         return episode_reward_list, episode_td_error_list, is_train_success
 
-    def test(self):
-        episode_reward_lst = np.zeros(shape=(self.test_num_episodes,), dtype=float)
+    def validate(self):
+        episode_reward_lst = np.zeros(shape=(self.validation_num_episodes,), dtype=float)
 
         test_env = gym.make('FrozenLake-v1', desc=DESC, map_name=MAP_NAME, is_slippery=IS_SLIPPERY)
 
-        for episode in range(self.num_test_episodes):
+        for episode in range(self.validation_num_episodes):
             episode_reward = 0  # cumulative_reward
             episode_step = 1
 
@@ -137,7 +141,7 @@ def main():
 
     env = gym.make('FrozenLake-v1', desc=DESC, map_name=MAP_NAME, is_slippery=IS_SLIPPERY)
     q_table_agent = QTableAgent(
-        env=env, num_episodes=NUM_EPISODES, num_test_episodes=NUM_TEST_EPISODES,
+        env=env, num_episodes=NUM_EPISODES, validation_num_episodes=NUM_TEST_EPISODES,
         alpha=ALPHA, gamma=GAMMA, epsilon=EPSILON
     )
 
@@ -161,12 +165,12 @@ def main():
     plt.show()
 
     if is_train_success:
-        q_learning_playing(q_table_agent=q_table_agent)
+        q_learning_test(q_table_agent=q_table_agent)
     else:
         print("NO PLAYING!!!")
 
 
-def q_learning_playing(q_table_agent):
+def q_learning_test(q_table_agent):
     play_env = gym.make('FrozenLake-v1', desc=DESC, map_name=MAP_NAME, is_slippery=IS_SLIPPERY, render_mode="human")
     observation, _ = play_env.reset()
     time.sleep(1)

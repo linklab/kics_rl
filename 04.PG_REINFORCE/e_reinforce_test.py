@@ -5,10 +5,10 @@ os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 import gymnasium as gym
 import torch
 
-from c_qnet import QNet, MODEL_DIR
+from c_policy_and_value import MODEL_DIR, Policy
 
 
-def play(env, q, num_episodes):
+def test(env, policy, num_episodes):
     for i in range(num_episodes):
         episode_reward = 0  # cumulative_reward
 
@@ -21,9 +21,10 @@ def play(env, q, num_episodes):
 
         while not done:
             episode_steps += 1
-            action = q.get_action(observation, epsilon=0.0)
+            # action = policy.get_action(observation)
+            action = policy.get_action(observation, exploration=False)
 
-            next_observation, reward, terminated, truncated, _ = env.step(action)
+            next_observation, reward, terminated, truncated, _ = env.step(action * 2)
 
             episode_reward += reward
             observation = next_observation
@@ -37,17 +38,17 @@ def play(env, q, num_episodes):
 def main_play(num_episodes, env_name):
     env = gym.make(env_name, render_mode="human")
 
-    q = QNet(n_features=4, n_actions=2)
-    model_params = torch.load(os.path.join(MODEL_DIR, "dqn_{0}_latest.pth".format(env_name)))
-    q.load_state_dict(model_params)
+    policy = Policy(n_features=3, n_actions=1)
+    model_params = torch.load(os.path.join(MODEL_DIR, "reinforce_{0}_latest.pth".format(env_name)))
+    policy.load_state_dict(model_params)
 
-    play(env, q, num_episodes=num_episodes)
+    test(env, policy, num_episodes=num_episodes)
 
     env.close()
 
 
 if __name__ == "__main__":
     NUM_EPISODES = 3
-    ENV_NAME = "CartPole-v1"
+    ENV_NAME = "Pendulum-v1"
 
     main_play(num_episodes=NUM_EPISODES, env_name=ENV_NAME)

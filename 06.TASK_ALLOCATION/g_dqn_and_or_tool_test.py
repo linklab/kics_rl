@@ -16,7 +16,7 @@ from b_task_allocation_with_google_or_tools import solve
 DEVICE = torch.device("cpu")
 
 
-def play(env, q, num_episodes):
+def test(env, q, num_episodes):
     rl_episode_reward_lst = np.zeros(shape=(num_episodes,), dtype=float)
     rl_duration_lst = []
     or_tool_solution_lst = np.zeros(shape=(num_episodes,), dtype=float)
@@ -94,7 +94,7 @@ def main(num_episodes, env_name):
     )
     q.load_state_dict(model_params)
 
-    results = play(env, q, num_episodes=num_episodes)
+    results = test(env, q, num_episodes=num_episodes)
 
     print("[    DQN]   Episode Rewards: {0}, Average: {1:.3f}, Duration: {2}".format(
         results["rl_episode_reward_lst"], results["rl_episode_reward_avg"], results["rl_duration_avg"]

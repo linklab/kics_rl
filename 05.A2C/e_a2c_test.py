@@ -8,7 +8,7 @@ import torch
 from c_actor_and_critic import MODEL_DIR, Actor
 
 
-def play(env, actor, num_episodes):
+def test(env, actor, num_episodes):
     for i in range(num_episodes):
         episode_reward = 0  # cumulative_reward
 
@@ -42,7 +42,7 @@ def main_play(num_episodes, env_name):
     model_params = torch.load(os.path.join(MODEL_DIR, "a2c_{0}_latest.pth".format(env_name)))
     actor.load_state_dict(model_params)
 
-    play(env, actor, num_episodes=num_episodes)
+    test(env, actor, num_episodes=num_episodes)
 
     env.close()
 
