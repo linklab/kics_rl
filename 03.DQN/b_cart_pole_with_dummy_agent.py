@@ -26,9 +26,9 @@ def run_env():
         next_observation, reward, terminated, truncated, info = env.step(action)
 
         print("[Step: {0:3}] Obs.: {1:>2}, Action: {2}({3}), Next Obs.: {4}, "
-              "Reward: {5}, Done: {6}, Truncated: {7}, Info: {8}".format(
+              "Reward: {5}, terminated: {6}, Truncated: {7}, Info: {8}".format(
             episode_step, str(observation), action, ACTION_STRING_LIST[action], str(next_observation),
-            reward, done, truncated, info
+            reward, terminated, truncated, info
         ))
         observation = next_observation
         done = terminated or truncated
