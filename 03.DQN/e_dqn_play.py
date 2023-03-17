@@ -5,7 +5,7 @@ os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 import gymnasium as gym
 import torch
 
-from c_qnet import QNet, DEVICE, MODEL_DIR
+from c_qnet import QNet, MODEL_DIR
 
 
 def play(env, q, num_episodes):

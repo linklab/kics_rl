@@ -1,9 +1,9 @@
-# https://gymnasium.farama.org/environments/toy_text/frozen_lake/
 import gymnasium as gym; print(f"gym.__version__: {gym.__version__}")
 import numpy as np
 np.set_printoptions(edgeitems=3, linewidth=100000, formatter=dict(float=lambda x: "%7.3f" % x))
 
-env = gym.make("BreakoutNoFrameskip-v4", render_mode="human")
+# https://gymnasium.farama.org/environments/atari/breakout/
+env = gym.make("ALE/Breakout-v5", render_mode="human")
 
 def observation_and_action_space_info():
     #####################

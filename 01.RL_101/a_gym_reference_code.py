@@ -3,6 +3,7 @@ import gymnasium as gym; print(f"gym.__version__: {gym.__version__}")
 import numpy as np
 np.set_printoptions(edgeitems=10, linewidth=100000, formatter=dict(float=lambda x: "%4.2f" % x))
 
+# https://gymnasium.farama.org/environments/box2d/lunar_lander/
 env = gym.make("LunarLander-v2", render_mode="human")
 
 # Num of training episodes = 3

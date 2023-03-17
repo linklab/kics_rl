@@ -1,5 +1,5 @@
 # https://gymnasium.farama.org/environments/classic_control/cart_pole/
-import gymnasium as gym
+import gymnasium as gym; print("gym.__version__:", gym.__version__)
 import random
 import time
 

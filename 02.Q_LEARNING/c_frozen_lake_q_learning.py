@@ -1,9 +1,8 @@
-import time
-
-import gymnasium as gym
+import gymnasium as gym; print(f"gym.__version__: {gym.__version__}")
 import numpy as np
 import matplotlib.pyplot as plt
 import random
+import time
 
 np.set_printoptions(precision=3)
 np.set_printoptions(suppress=True)

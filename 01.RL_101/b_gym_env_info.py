@@ -1,8 +1,8 @@
-# https://gymnasium.farama.org/environments/toy_text/frozen_lake/
 import gymnasium as gym; print(f"gym.__version__: {gym.__version__}")
 import numpy as np
 np.set_printoptions(edgeitems=10, linewidth=100000, formatter=dict(float=lambda x: "%7.3f" % x))
 
+# https://gymnasium.farama.org/environments/box2d/lunar_lander/
 env = gym.make("LunarLander-v2", render_mode="human")
 
 def observation_and_action_space_info():

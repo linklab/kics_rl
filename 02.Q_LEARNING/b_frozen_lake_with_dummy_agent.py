@@ -1,4 +1,4 @@
-import gymnasium as gym
+import gymnasium as gym; print(f"gym.__version__: {gym.__version__}")
 import random
 import time
 

@@ -12,7 +12,7 @@ import wandb
 from datetime import datetime
 from shutil import copyfile
 
-from c_qnet import QNet, ReplayBuffer, Transition, DEVICE, MODEL_DIR
+from c_qnet import QNet, ReplayBuffer, Transition, MODEL_DIR
 
 
 class DQN:
