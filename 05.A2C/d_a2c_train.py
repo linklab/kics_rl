@@ -57,7 +57,7 @@ class A2C:
     def train_loop(self):
         total_train_start_time = time.time()
 
-        test_episode_reward_avg = -1500
+        validation_episode_reward_avg = -1500
         policy_loss = avg_mu_v = avg_std_v = avg_action = avg_action_prob = 0.0
 
         is_terminated = False
@@ -102,22 +102,22 @@ class A2C:
                 )
 
             if n_episode % self.train_num_episodes_before_next_test == 0:
-                test_episode_reward_lst, test_episode_reward_avg = self.validate()
+                validation_episode_reward_lst, validation_episode_reward_avg = self.validate()
 
-                print("[ValidationEpisode Reward: {0}] Average: {1:.3f}".format(
-                    test_episode_reward_lst, test_episode_reward_avg
+                print("[Validation Episode Reward: {0}] Average: {1:.3f}".format(
+                    validation_episode_reward_lst, validation_episode_reward_avg
                 ))
 
-                if test_episode_reward_avg > self.episode_reward_avg_solved:
+                if validation_episode_reward_avg > self.episode_reward_avg_solved:
                     print("Solved in {0:,} steps ({1:,} training steps)!".format(
                         self.time_steps, self.training_time_steps
                     ))
-                    self.model_save(test_episode_reward_avg)
+                    self.model_save(validation_episode_reward_avg)
                     is_terminated = True
 
             if self.use_wandb:
                 self.wandb.log({
-                    "[TEST] Mean Episode Reward ({0} Episodes)".format(self.validation_num_episodes): test_episode_reward_avg,
+                    "[VALIDATION] Mean Episode Reward ({0} Episodes)".format(self.validation_num_episodes): validation_episode_reward_avg,
                     "[TRAIN] Episode Reward": episode_reward,
                     "[TRAIN] Policy Loss": policy_loss,
                     "[TRAIN] avg_mu_v": avg_mu_v,
@@ -183,9 +183,9 @@ class A2C:
             action_log_probs.exp().mean().item()
         )
 
-    def model_save(self, test_episode_reward_avg):
+    def model_save(self, validation_episode_reward_avg):
         filename = "a2c_{0}_{1:4.1f}_{2}.pth".format(
-            self.env_name, test_episode_reward_avg, self.current_time
+            self.env_name, validation_episode_reward_avg, self.current_time
         )
         torch.save(self.actor.state_dict(), os.path.join(MODEL_DIR, filename))
 
