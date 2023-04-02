@@ -1,11 +1,12 @@
 import os
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
-
 import gymnasium as gym; print(f"gym.__version__: {gym.__version__}")
 import numpy as np
 import matplotlib.pyplot as plt
 import random
 import time
+from warnings import filterwarnings
+filterwarnings(action='ignore', category=DeprecationWarning)
 
 
 np.set_printoptions(precision=3)
@@ -75,7 +76,9 @@ class QTableAgent:
                 episode_reward += reward
 
                 # Q-Learning
-                td_error = reward + self.gamma * np.max(self.q_table[next_observation, :]) - self.q_table[observation, action]
+                td_error = reward + self.gamma * np.max(self.q_table[next_observation, :]) \
+                           - self.q_table[observation, action]
+
                 self.q_table[observation, action] = self.q_table[observation, action] + self.alpha * td_error
                 episode_td_error += td_error
 
@@ -134,14 +137,14 @@ class QTableAgent:
 
 def main():
     NUM_EPISODES = 200
-    NUM_TEST_EPISODES = 10
+    VALIDATION_NUM_EPISODES = 10
     ALPHA = 0.1
     GAMMA = 0.95
     EPSILON = 0.1
 
     env = gym.make('FrozenLake-v1', desc=DESC, map_name=MAP_NAME, is_slippery=IS_SLIPPERY)
     q_table_agent = QTableAgent(
-        env=env, num_episodes=NUM_EPISODES, validation_num_episodes=NUM_TEST_EPISODES,
+        env=env, num_episodes=NUM_EPISODES, validation_num_episodes=VALIDATION_NUM_EPISODES,
         alpha=ALPHA, gamma=GAMMA, epsilon=EPSILON
     )
 
