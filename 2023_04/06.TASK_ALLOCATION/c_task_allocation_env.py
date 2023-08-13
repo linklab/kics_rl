@@ -10,10 +10,11 @@ from a_config import STATIC_TASK_RESOURCE_DEMAND_SAMPLE, STATIC_TASK_VALUE_SAMPL
 import random
 from datetime import datetime
 
+
 class DoneReasonType(enum.Enum):
-    TYPE_FAIL_1 = "The Same Task Selected"
-    TYPE_FAIL_2 = "Resource Limit Exceeded"
-    TYPE_SUCCESS_1 = "All Tasks Allocated Successfully"
+    # TYPE_FAIL_1 = "The Same Task Selected"
+    # TYPE_FAIL_2 = "Resource Limit Exceeded"
+    # TYPE_SUCCESS_1 = "All Tasks Allocated Successfully"
     TYPE_SUCCESS_2 = "An Unavailable Resource"
 
 

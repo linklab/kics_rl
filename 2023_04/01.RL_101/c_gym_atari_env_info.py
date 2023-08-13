@@ -30,6 +30,9 @@ def observation_and_action_space_info():
     for i in range(10):
         print(env.action_space.sample(), end=" ")
 
+    while(True):
+        pass
+
 
 if __name__ == "__main__":
     observation_and_action_space_info()

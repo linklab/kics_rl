@@ -58,7 +58,7 @@ class A2C:
         total_train_start_time = time.time()
 
         validation_episode_reward_avg = -1500
-        policy_loss = avg_mu_v = avg_std_v = avg_action = avg_action_prob = 0.0
+        policy_loss = critic_loss = avg_mu_v = avg_std_v = avg_action = avg_action_prob = 0.0
 
         is_terminated = False
 
@@ -86,7 +86,7 @@ class A2C:
                 done = terminated or truncated
 
                 if self.time_steps % self.batch_size == 0:
-                    policy_loss, avg_mu_v, avg_std_v, avg_action, avg_action_prob = self.train()
+                    policy_loss, critic_loss, avg_mu_v, avg_std_v, avg_action, avg_action_prob = self.train()
                     self.buffer.clear()
 
             total_training_time = time.time() - total_train_start_time
@@ -97,6 +97,7 @@ class A2C:
                     "[Episode {:3,}, Steps {:6,}]".format(n_episode, self.time_steps),
                     "Episode Reward: {:>9.3f},".format(episode_reward),
                     "Policy Loss: {:>7.3f},".format(policy_loss),
+                    "Critic Loss: {:>7.3f},".format(critic_loss),
                     "Training Steps: {:5,}, ".format(self.training_time_steps),
                     "Elapsed Time: {}".format(total_training_time)
                 )
@@ -120,6 +121,7 @@ class A2C:
                     "[VALIDATION] Mean Episode Reward ({0} Episodes)".format(self.validation_num_episodes): validation_episode_reward_avg,
                     "[TRAIN] Episode Reward": episode_reward,
                     "[TRAIN] Policy Loss": policy_loss,
+                    "[TRAIN] Critic Loss": critic_loss,
                     "[TRAIN] avg_mu_v": avg_mu_v,
                     "[TRAIN] avg_std_v": avg_std_v,
                     "[TRAIN] avg_action": avg_action,
@@ -177,6 +179,7 @@ class A2C:
 
         return (
             actor_loss.item(),
+            critic_loss.item(),
             mu_v.mean().item(),
             std_v.mean().item(),
             actions.type(torch.float32).mean().item(),
