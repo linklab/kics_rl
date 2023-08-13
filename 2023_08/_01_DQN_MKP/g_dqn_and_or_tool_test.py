@@ -1,4 +1,3 @@
-# https://gymnasium.farama.org/environments/classic_control/cart_pole/
 import os
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
@@ -51,10 +50,10 @@ def test(env, q, num_episodes):
         or_tool_start_time = datetime.now()
 
         or_tool_solution = solve(
-            num_items=NUM_ITEMS, num_resources=2,
-            item_values=env.ITEM_VALUES,
-            item_demands=env.ITEM_RESOURCE_DEMAND,
-            resource_capacity=env.INITIAL_RESOURCES_CAPACITY
+            n_items=NUM_ITEMS, n_resources=2,
+            item_resource_demands=env.item_resource_demand,
+            item_values=env.item_values,
+            resource_capacities=env.initial_resources_capacity
         )
         or_tool_duration = datetime.now() - or_tool_start_time
         or_tool_solution_lst[i] = or_tool_solution

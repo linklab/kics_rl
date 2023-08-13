@@ -14,7 +14,7 @@ PROJECT_HOME = os.path.abspath(os.path.join(CURRENT_PATH, os.pardir))
 if PROJECT_HOME not in sys.path:
     sys.path.append(PROJECT_HOME)
 
-MODEL_DIR = os.path.join(PROJECT_HOME, "04.PG_REINFORCE", "models")
+MODEL_DIR = os.path.join(PROJECT_HOME, "_04_PG_REINFORCE", "models")
 if not os.path.exists(MODEL_DIR):
     os.mkdir(MODEL_DIR)
 

@@ -14,7 +14,7 @@ PROJECT_HOME = os.path.abspath(os.path.join(CURRENT_PATH, os.pardir))
 if PROJECT_HOME not in sys.path:
     sys.path.append(PROJECT_HOME)
 
-MODEL_DIR = os.path.join(PROJECT_HOME, "06.TASK_ALLOCATION", "models")
+MODEL_DIR = os.path.join(PROJECT_HOME, "_06_TASK_ALLOCATION", "models")
 if not os.path.exists(MODEL_DIR):
     os.mkdir(MODEL_DIR)
 

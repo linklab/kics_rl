@@ -14,7 +14,7 @@ PROJECT_HOME = os.path.abspath(os.path.join(CURRENT_PATH, os.pardir))
 if PROJECT_HOME not in sys.path:
     sys.path.append(PROJECT_HOME)
 
-MODEL_DIR = os.path.join(PROJECT_HOME, "01.DQN_MKP", "models")
+MODEL_DIR = os.path.join(PROJECT_HOME, "_01_DQN_MKP", "models")
 if not os.path.exists(MODEL_DIR):
     os.mkdir(MODEL_DIR)
 
