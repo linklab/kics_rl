@@ -1,4 +1,3 @@
-# https://gymnasium.farama.org/environments/classic_control/cart_pole/
 import os
 from datetime import datetime, timedelta
 

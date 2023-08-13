@@ -1,4 +1,3 @@
-# https://gymnasium.farama.org/environments/classic_control/cart_pole/
 import time
 import os
 from copy import deepcopy
