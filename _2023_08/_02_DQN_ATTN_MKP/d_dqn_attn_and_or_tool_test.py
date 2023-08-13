@@ -6,10 +6,10 @@ import numpy as np
 np.set_printoptions(edgeitems=3, linewidth=100000, formatter=dict(float=lambda x: "%5.3f" % x))
 
 import torch
-from a_config import env_config, ENV_NAME, NUM_ITEMS
-from c_mkp_env import MkpEnv
-from e_qnet import QNet, MODEL_DIR
-from b_mkp_with_google_or_tools import solve
+from _2023_08._01_DQN_MKP.a_config import env_config, ENV_NAME, NUM_ITEMS, NUM_RESOURCES
+from _2023_08._01_DQN_MKP.c_mkp_env import MkpEnv
+from _2023_08._02_DQN_ATTN_MKP.c_dqn_attn_train import QNetAttn
+from _2023_08._01_DQN_MKP.b_mkp_with_google_or_tools import solve
 
 DEVICE = torch.device("cpu")
 
@@ -81,14 +81,18 @@ def test(env, q, num_episodes):
 
 
 def main(num_episodes, env_name):
+    current_path = os.path.dirname(os.path.realpath(__file__))
+    project_home = os.path.abspath(os.path.join(current_path, os.pardir))
+    model_dir = os.path.join(project_home, "_02_DQN_ATTN_MKP", "models")
+
     env = MkpEnv(env_config=env_config)
 
     print("*" * 100)
 
-    q = QNet(n_features=(NUM_ITEMS + 1) * 4, n_actions=NUM_ITEMS, device=DEVICE)
+    q = QNetAttn(n_features=NUM_ITEMS * (NUM_RESOURCES + 1), n_actions=NUM_ITEMS, device=DEVICE)
 
     model_params = torch.load(
-        os.path.join(MODEL_DIR, "dqn_{0}_{1}_latest.pth".format(NUM_ITEMS, env_name))
+        os.path.join(model_dir, "dqn_{0}_{1}_latest.pth".format(NUM_ITEMS, env_name))
     )
     q.load_state_dict(model_params)
 

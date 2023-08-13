@@ -2,8 +2,8 @@ import random
 
 import numpy as np
 
-from c_mkp_env import MkpEnv
-from a_config import env_config
+from _2023_08._01_DQN_MKP.c_mkp_env import MkpEnv
+from _2023_08._01_DQN_MKP.a_config import env_config
 
 
 class Dummy_Agent:
