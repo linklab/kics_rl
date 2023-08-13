@@ -14,17 +14,17 @@ PROJECT_HOME = os.path.abspath(os.path.join(CURRENT_PATH, os.pardir))
 if PROJECT_HOME not in sys.path:
     sys.path.append(PROJECT_HOME)
 
-MODEL_DIR = os.path.join(PROJECT_HOME, "06.TASK_ALLOCATION", "models")
+MODEL_DIR = os.path.join(PROJECT_HOME, "_01_DQN_MKP", "models")
 if not os.path.exists(MODEL_DIR):
     os.mkdir(MODEL_DIR)
 
 
 class QNet(nn.Module):
-    def __init__(self, n_features, n_actions, device):
+    def __init__(self, n_features, n_actions, device='cpu'):
         super(QNet, self).__init__()
         self.n_features = n_features
         self.n_actions = n_actions
-        self.fc1 = nn.Linear(n_features, 128)  # fully connected
+        self.fc1 = nn.Linear(n_features, 128)
         self.norm1 = nn.LayerNorm(normalized_shape=128)
         self.fc2 = nn.Linear(128, 128)
         self.norm2 = nn.LayerNorm(normalized_shape=128)
@@ -39,10 +39,6 @@ class QNet(nn.Module):
         x = F.leaky_relu(self.norm1(self.fc1(x)))
         x = F.leaky_relu(self.norm2(self.fc2(x)))
         x = self.norm3(self.fc3(x))
-
-        # x = F.leaky_relu(self.fc1(x))
-        # x = F.leaky_relu(self.fc2(x))
-        # x = F.sigmoid(self.fc3(x))
 
         return x
 
@@ -92,7 +88,9 @@ class ReplayBuffer:
         # Get random index
         indices = np.random.choice(len(self.buffer), size=batch_size, replace=False)
         # Sample
-        observations, actions, next_observations, rewards, dones, action_masks = zip(*[self.buffer[idx] for idx in indices])
+        observations, actions, next_observations, rewards, dones, action_masks = zip(
+            *[self.buffer[idx] for idx in indices]
+        )
 
         # Convert to ndarray for speed up cuda
         observations = np.array(observations)

@@ -1,44 +1,46 @@
 # https://gymnasium.farama.org/environments/toy_text/frozen_lake/
 import gymnasium as gym; print(f"gym.__version__: {gym.__version__}")
 import time
+from warnings import filterwarnings
+filterwarnings(action='ignore', category=DeprecationWarning)
 
-env = gym.make('FrozenLake-v1', desc=None, map_name="4x4", is_slippery=False, render_mode="human")
 
 ACTION_STRING_LIST = [" LEFT", " DOWN", "RIGHT", "   UP"]
 
 
-def env_info_details():
-    #####################
-    # observation space #
-    #####################
-    print("*" * 80)
-    print("[observation_space]")
-    print(env.observation_space)
-    print(env.observation_space.n)
-    # We should expect to see 15 possible grids from 0 to 15 when
-    # we uniformly randomly sample from our observation space
-    for i in range(10):
-        print(env.observation_space.sample(), end=" ")
-    print()
+def frozen_lake_1():
+    env = gym.make('FrozenLake-v1', map_name="4x4", render_mode="human")
+    return env
 
-    print("*" * 80)
-    ################
-    # action space #
-    ################
-    print("[action_space]")
-    print(env.action_space)
-    print(env.action_space.n)
-    # We should expect to see 4 actions when
-    # we uniformly randomly sample:
-    #     1. LEFT: 0
-    #     2. DOWN: 1
-    #     3. RIGHT: 2
-    #     4. UP: 3
-    for i in range(10):
-        print(env.action_space.sample(), end=" ")
-    print()
 
-    print("*" * 80)
+def frozen_lake_2():
+    env = gym.make('FrozenLake-v1', map_name="4x4", is_slippery=True, render_mode="human")
+    return env
+
+
+def frozen_lake_3():
+    env = gym.make('FrozenLake-v1', map_name="8x8", render_mode="human")
+    return env
+
+
+def frozen_lake_4():
+    env = gym.make('FrozenLake-v1', map_name="8x8", is_slippery=False, render_mode="human")
+    return env
+
+
+def frozen_lake_5():
+    desc = ["SFFF", "HFHH", "FFFH", "HFFF", "FFFG"]
+    env = gym.make('FrozenLake-v1', desc=desc, render_mode="human")
+    return env
+
+
+def frozen_lake_6():
+    from gymnasium.envs.toy_text.frozen_lake import generate_random_map
+    env = gym.make('FrozenLake-v1', desc=generate_random_map(size=8), render_mode="human")
+    return env
+
+
+def run(env):
     # This sets the initial state at S, our starting point
     # We can render the environment to see where we are on the 4x4 frozenlake gridworld
     observation, info = env.reset()
@@ -67,4 +69,11 @@ def env_info_details():
 
 
 if __name__ == "__main__":
-    env_info_details()
+    #env = frozen_lake_1()
+    #env = frozen_lake_2()
+    #env = frozen_lake_3()
+    #env = frozen_lake_4()
+    #env = frozen_lake_5()
+    env = frozen_lake_6()
+
+    run(env)

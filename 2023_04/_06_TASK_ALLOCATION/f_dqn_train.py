@@ -35,23 +35,23 @@ class EarlyStopModelSaver:
         self.model_filename_saved = None
 
     def check(
-            self, test_episode_reward_avg, num_tasks, env_name, current_time,
+            self, validation_episode_reward_avg, num_tasks, env_name, current_time,
             n_episode, time_steps, training_time_steps, q
     ):
         early_stop = False
 
-        if test_episode_reward_avg >= self.max_test_episode_reward:
+        if validation_episode_reward_avg >= self.max_test_episode_reward:
             print("[EARLY STOP] test_episode_reward {0:.5f} is increased to {1:.5f}".format(
-                self.max_test_episode_reward, test_episode_reward_avg
+                self.max_test_episode_reward, validation_episode_reward_avg
             ))
-            self.model_save(test_episode_reward_avg, num_tasks, env_name, n_episode, current_time, q)
-            self.max_test_episode_reward = test_episode_reward_avg
+            self.model_save(validation_episode_reward_avg, num_tasks, env_name, n_episode, current_time, q)
+            self.max_test_episode_reward = validation_episode_reward_avg
             self.counter = 0
         else:
             self.counter += 1
             if self.counter < self.patience:
                 print("[EARLY STOP] COUNTER: {0} (test_episode_reward/max_test_episode_reward={1:.5f}/{2:.5f})".format(
-                    self.counter, test_episode_reward_avg, self.max_test_episode_reward
+                    self.counter, validation_episode_reward_avg, self.max_test_episode_reward
                 ))
             else:
                 early_stop = True
@@ -60,13 +60,13 @@ class EarlyStopModelSaver:
                 ))
         return early_stop
 
-    def model_save(self, test_episode_reward_avg, num_tasks, env_name, n_episode, current_time, q):
+    def model_save(self, validation_episode_reward_avg, num_tasks, env_name, n_episode, current_time, q):
         if self.model_filename_saved is not None:
             os.remove(self.model_filename_saved)
 
         filename = "dqn_{0}_{1}_{2}_{3:5.3f}_{4}.pth".format(
             num_tasks, env_name,
-            current_time, test_episode_reward_avg, n_episode
+            current_time, validation_episode_reward_avg, n_episode
         )
         filename = os.path.join(MODEL_DIR, filename)
         torch.save(q.state_dict(), filename)
@@ -157,8 +157,8 @@ class DQN:
         loss = 0.0
 
         total_train_start_time = time.time()
-        test_episode_reward_avg = 0.0
-        test_total_value_avg = 0.0
+        validation_episode_reward_avg = 0.0
+        validation_total_value_avg = 0.0
 
         is_terminated = False
 
@@ -206,19 +206,19 @@ class DQN:
                 )
 
             # print(epsilon, self.epsilon_end, n_episode, self.train_num_episodes_before_next_test, "!!!")
-            if epsilon <= self.epsilon_end + 1e-6 and n_episode % self.train_num_episodes_before_next_test == 0:
-                test_episode_reward_lst, test_episode_reward_avg, test_total_value_lst, test_total_value_avg = \
+            if n_episode % self.train_num_episodes_before_next_test == 0:
+                validation_episode_reward_lst, validation_episode_reward_avg, validation_total_value_lst, validation_total_value_avg = \
                     self.validate()
 
-                print("[ValidationEpisode Reward: {0}] Average: {1:.3f}".format(
-                    test_episode_reward_lst, test_episode_reward_avg
+                print("[Validation Episode Reward: {0}] Average: {1:.3f}".format(
+                    validation_episode_reward_lst, validation_episode_reward_avg
                 ))
                 print("[ValidationTotal Value: {0}] Average: {1:.3f}".format(
-                    test_total_value_lst, test_total_value_avg
+                    validation_total_value_lst, validation_total_value_avg
                 ))
 
                 is_terminated = self.early_stop_model_saver.check(
-                    test_episode_reward_avg=test_episode_reward_avg,
+                    validation_episode_reward_avg=validation_episode_reward_avg,
                     num_tasks=NUM_TASKS, env_name=ENV_NAME, current_time=self.current_time,
                     n_episode=n_episode, time_steps=self.time_steps, training_time_steps=self.training_time_steps,
                     q=self.q
@@ -226,8 +226,8 @@ class DQN:
 
             if self.use_wandb:
                 self.wandb.log({
-                    "[TEST] Mean Episode Reward ({0} Episodes)".format(self.validation_num_episodes): test_episode_reward_avg,
-                    "[TEST] Mean Total Value ({0} Episodes)".format(self.validation_num_episodes): test_total_value_avg,
+                    "[VALIDATION] Mean Episode Reward ({0} Episodes)".format(self.validation_num_episodes): validation_episode_reward_avg,
+                    "[VALIDATION] Mean Total Value ({0} Episodes)".format(self.validation_num_episodes): validation_total_value_avg,
                     "[TRAIN] Episode Reward (Total Value)": episode_reward,
                     "[TRAIN] Loss": loss if loss != 0.0 else 0.0,
                     "[TRAIN] Epsilon": epsilon,

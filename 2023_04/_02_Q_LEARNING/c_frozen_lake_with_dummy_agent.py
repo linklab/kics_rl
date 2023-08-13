@@ -1,9 +1,12 @@
 import gymnasium as gym; print(f"gym.__version__: {gym.__version__}")
 import random
 import time
+from warnings import filterwarnings
+filterwarnings(action='ignore', category=DeprecationWarning)
 
 env = gym.make('FrozenLake-v1', desc=None, map_name="4x4", is_slippery=False, render_mode="human")
 ACTION_STRING_LIST = [" LEFT", " DOWN", "RIGHT", "   UP"]
+
 
 # Random Action
 class Dummy_Agent:
@@ -12,6 +15,7 @@ class Dummy_Agent:
         available_action_ids = [0, 1, 2, 3]
         action_id = random.choice(available_action_ids)
         return action_id
+
 
 def main():
     print("START RUN!!!")
