@@ -40,10 +40,6 @@ class QNet(nn.Module):
         x = F.leaky_relu(self.norm2(self.fc2(x)))
         x = self.norm3(self.fc3(x))
 
-        # x = F.leaky_relu(self.fc1(x))
-        # x = F.leaky_relu(self.fc2(x))
-        # x = F.sigmoid(self.fc3(x))
-
         return x
 
     def get_action(self, obs, epsilon, action_mask):
