@@ -42,8 +42,8 @@ def test(env, q, num_episodes):
         rl_episode_reward_lst[i] = info["VALUE_ALLOCATED"]
         rl_duration_lst.append(rl_duration)
         print("*** RL RESULT ***")
-        print("EPISODE_STEPS: {1:3d}, EPISODE REWARD: {2:5.3f}, INFO:{3}".format(
-            i, episode_steps, episode_reward, info
+        print("EPISODE_STEPS: {1:3d}, EPISODE REWARD: {2:5.3f}, VALUE_ALLOCATED: {3}, INFO:{4}".format(
+            i, episode_steps, episode_reward, info['VALUE_ALLOCATED'], info
         ))
 
         print("*** GOOGLE OR TOOL RESULT ***")
@@ -60,8 +60,8 @@ def test(env, q, num_episodes):
         or_tool_duration_lst.append(or_tool_duration)
 
         print("*** RL VS. OR_TOOL COMPARISON ***")
-        print("RL_EPISODE_REWARD (UTILIZATION) | OR_TOOL_SOLUTION (UTILIZATION) ---> {0:>6.3f} |{1:>6.3f}".format(
-            episode_reward, or_tool_solution
+        print("RL_SOLUTION | OR_TOOL_SOLUTION ---> {0:>6.3f} | {1:>6.3f}".format(
+            info['VALUE_ALLOCATED'], or_tool_solution
         ))
 
         print("RL_DURATION | OR_TOOL_DURATION ---> {0} | {1}".format(

@@ -201,7 +201,7 @@ class MkpEnv(gym.Env):
         self._internal_state[unavailable_items_indices, 1:] = 0.0
 
         # >>> Make Transition >>>
-        # Make next_ovservation
+        # Make next_observation
         state = self._internal_state
         if self._state_normalization:
             state = self._normalize_internal_state(state)
