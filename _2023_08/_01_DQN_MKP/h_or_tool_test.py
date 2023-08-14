@@ -6,13 +6,17 @@ from datetime import datetime, timedelta
 import numpy as np
 np.set_printoptions(edgeitems=3, linewidth=100000, formatter=dict(float=lambda x: "%5.3f" % x))
 
-from _2023_08._01_DQN_MKP.a_config import env_config, NUM_ITEMS
+from _2023_08._01_DQN_MKP.a_config import env_config, STATIC_NUM_RESOURCES
 from _2023_08._01_DQN_MKP.c_mkp_env import MkpEnv
 from _2023_08._01_DQN_MKP.b_mkp_with_google_or_tools import solve
 
 
 def main(num_episodes):
+    if env_config["use_static_item_resource_demand"]:
+        env_config["num_resources"] = STATIC_NUM_RESOURCES
+
     env = MkpEnv(env_config=env_config)
+
     or_tool_solution_lst = np.zeros(shape=(num_episodes,), dtype=float)
     or_tool_duration_lst = []
 
@@ -23,7 +27,7 @@ def main(num_episodes):
         or_tool_start_time = datetime.now()
 
         or_tool_solution = solve(
-            n_items=NUM_ITEMS, n_resources=2,
+            n_items=env.num_items, n_resources=2,
             item_resource_demands=env.item_resource_demand,
             item_values=env.item_values,
             resource_capacities=env.initial_resources_capacity

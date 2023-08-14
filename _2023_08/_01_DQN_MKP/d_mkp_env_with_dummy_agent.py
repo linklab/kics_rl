@@ -3,7 +3,7 @@ import random
 import numpy as np
 
 from _2023_08._01_DQN_MKP.c_mkp_env import MkpEnv
-from _2023_08._01_DQN_MKP.a_config import env_config
+from _2023_08._01_DQN_MKP.a_config import env_config, STATIC_NUM_RESOURCES
 
 
 class Dummy_Agent:
@@ -27,6 +27,10 @@ def main():
     #     "highest_item_resource_demand": [100, 100],  # 아이템 자원 초기화 시에 각 아이템 자원 최대 요구량
     #     "initial_resources_capacity": [250, 250],  # 초기 자원 용량
     # }
+
+    if env_config["use_static_item_resource_demand"]:
+        env_config["num_resources"] = STATIC_NUM_RESOURCES
+
     env = MkpEnv(env_config=env_config)
 
     agent = Dummy_Agent(env_config["num_items"])

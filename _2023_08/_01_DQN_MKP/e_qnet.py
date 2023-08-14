@@ -5,8 +5,6 @@ import collections
 import torch
 import numpy as np
 
-print("TORCH VERSION:", torch.__version__)
-
 
 class QNet(nn.Module):
     def __init__(self, n_features, n_actions, device='cpu'):
@@ -26,6 +24,9 @@ class QNet(nn.Module):
     def forward(self, x):
         if isinstance(x, np.ndarray):
             x = torch.tensor(x, dtype=torch.float32, device=self.device)
+
+        if x.ndim == 3:
+            x = torch.flatten(x, start_dim=1)
         x = F.leaky_relu(self.norm1(self.fc1(x)))
         x = F.leaky_relu(self.norm2(self.fc2(x)))
         x = self.norm3(self.fc3(x))
@@ -33,6 +34,12 @@ class QNet(nn.Module):
         return x
 
     def get_action(self, obs, epsilon, action_mask):
+        if isinstance(obs, np.ndarray):
+            obs = torch.tensor(obs, dtype=torch.float32, device=self.device)
+
+        if obs.ndim == 2:
+            obs = torch.flatten(obs, start_dim=0)
+
         # random.random(): 0.0과 1.0사이의 임의의 값을 반환
         if random.random() < epsilon:
             available_actions = np.where(action_mask == 0.0)[0]

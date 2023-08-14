@@ -7,13 +7,15 @@ import numpy as np
 np.set_printoptions(edgeitems=3, linewidth=100000, formatter=dict(float=lambda x: "%5.3f" % x))
 
 import torch
+print("TORCH VERSION:", torch.__version__)
+
 import torch.nn.functional as F
 import torch.optim as optim
 import wandb
 from datetime import datetime
 from shutil import copyfile
 
-from _2023_08._01_DQN_MKP.a_config import env_config, dqn_config, ENV_NAME, NUM_ITEMS, NUM_RESOURCES
+from _2023_08._01_DQN_MKP.a_config import env_config, dqn_config, ENV_NAME, STATIC_NUM_RESOURCES
 from _2023_08._01_DQN_MKP.c_mkp_env import MkpEnv
 from _2023_08._01_DQN_MKP.e_qnet import QNet, ReplayBuffer, Transition
 
@@ -31,7 +33,7 @@ class EarlyStopModelSaver:
         self.patience = patience
         self.model_dir = model_dir
         self.counter = 0
-        self.max_test_episode_reward = -np.inf
+        self.max_validation_episode_reward = -np.inf
         self.model_filename_saved = None
 
     def check(
@@ -40,18 +42,18 @@ class EarlyStopModelSaver:
     ):
         early_stop = False
 
-        if validation_episode_reward_avg >= self.max_test_episode_reward:
-            print("[EARLY STOP] test_episode_reward {0:.5f} is increased to {1:.5f}".format(
-                self.max_test_episode_reward, validation_episode_reward_avg
+        if validation_episode_reward_avg >= self.max_validation_episode_reward:
+            print("[EARLY STOP] validation_episode_reward {0:.5f} is increased to {1:.5f}".format(
+                self.max_validation_episode_reward, validation_episode_reward_avg
             ))
             self.model_save(validation_episode_reward_avg, num_items, env_name, n_episode, current_time, q)
-            self.max_test_episode_reward = validation_episode_reward_avg
+            self.max_validation_episode_reward = validation_episode_reward_avg
             self.counter = 0
         else:
             self.counter += 1
             if self.counter < self.patience:
-                print("[EARLY STOP] COUNTER: {0} (test_episode_reward/max_test_episode_reward={1:.5f}/{2:.5f})".format(
-                    self.counter, validation_episode_reward_avg, self.max_test_episode_reward
+                print("[EARLY STOP] COUNTER: {0} (validation_episode_reward/max_validation_episode_reward={1:.5f}/{2:.5f})".format(
+                    self.counter, validation_episode_reward_avg, self.max_validation_episode_reward
                 ))
             else:
                 early_stop = True
@@ -73,7 +75,7 @@ class EarlyStopModelSaver:
         self.model_filename_saved = filename
         print("*** MODEL SAVED TO {0}".format(filename))
 
-        latest_file_name = "dqn_{0}_{1}_latest.pth".format(NUM_ITEMS, env_name)
+        latest_file_name = "dqn_{0}_{1}_latest.pth".format(num_items, env_name)
         copyfile(
             src=os.path.join(self.model_dir, filename),
             dst=os.path.join(self.model_dir, latest_file_name)
@@ -82,11 +84,12 @@ class EarlyStopModelSaver:
 
 
 class DQN:
-    def __init__(self, model, model_dir, env, test_env, config, env_config, use_wandb):
-        self.model = model
+    def __init__(self, q, target_q, model_dir, env, validation_env, config, env_config, use_wandb):
+        self.q = q
+        self.target_q = target_q
         self.model_dir = model_dir
         self.env = env
-        self.test_env = test_env
+        self.validation_env = validation_env
         self.use_wandb = use_wandb
 
         self.env_name = ENV_NAME
@@ -95,7 +98,7 @@ class DQN:
 
         if self.use_wandb:
             project_name = "DQN_{0}_{1}_WITH_{2}".format(
-                NUM_ITEMS, self.env_name, config["max_num_episodes"]
+                env_config["num_items"], self.env_name, config["max_num_episodes"]
             )
             if env_config["use_static_item_resource_demand"] is False and \
                     env_config["use_same_item_resource_demand"] is False:
@@ -124,17 +127,12 @@ class DQN:
         self.epsilon_end = config["epsilon_end"]
         self.epsilon_final_scheduled_percent = config["epsilon_final_scheduled_percent"]
         self.print_episode_interval = config["print_episode_interval"]
-        self.train_num_episodes_before_next_test = config["train_num_episodes_before_next_test"]
+        self.train_num_episodes_before_next_validation = config["train_num_episodes_before_next_validation"]
         self.validation_num_episodes = config["validation_num_episodes"]
         self.double_dqn = config["double_dqn"]
 
         self.epsilon_scheduled_last_episode = self.max_num_episodes * self.epsilon_final_scheduled_percent
 
-        # network
-        self.q = self.model(n_features=NUM_ITEMS * (NUM_RESOURCES + 1), n_actions=NUM_ITEMS, device=DEVICE)
-        self.target_q = self.model(n_features=NUM_ITEMS * (NUM_RESOURCES + 1), n_actions=NUM_ITEMS, device=DEVICE)
-
-        self.target_q.load_state_dict(self.q.state_dict())
         self.optimizer = optim.Adam(self.q.parameters(), lr=self.learning_rate)
 
         # agent
@@ -209,8 +207,8 @@ class DQN:
                     "Elapsed Time: {}".format(total_training_time_str)
                 )
 
-            # print(epsilon, self.epsilon_end, n_episode, self.train_num_episodes_before_next_test, "!!!")
-            if n_episode % self.train_num_episodes_before_next_test == 0:
+            # print(epsilon, self.epsilon_end, n_episode, self.train_num_episodes_before_next_validation, "!!!")
+            if n_episode % self.train_num_episodes_before_next_validation == 0:
                 validation_episode_reward_lst, validation_episode_reward_avg, validation_total_value_lst, validation_total_value_avg = \
                     self.validate()
 
@@ -223,7 +221,7 @@ class DQN:
 
                 is_terminated = self.early_stop_model_saver.check(
                     validation_episode_reward_avg=validation_episode_reward_avg,
-                    num_items=NUM_ITEMS, env_name=ENV_NAME, current_time=self.current_time,
+                    num_items=env_config["num_items"], env_name=ENV_NAME, current_time=self.current_time,
                     n_episode=n_episode, time_steps=self.time_steps, training_time_steps=self.training_time_steps,
                     q=self.q
                 )
@@ -299,14 +297,14 @@ class DQN:
         for i in range(self.validation_num_episodes):
             episode_reward = 0
 
-            observation, info = self.test_env.reset()
+            observation, info = self.validation_env.reset()
 
             done = False
 
             while not done:
                 action = self.q.get_action(observation, epsilon=0.0, action_mask=info["ACTION_MASK"])
 
-                next_observation, reward, terminated, truncated, info = self.test_env.step(action)
+                next_observation, reward, terminated, truncated, info = self.validation_env.step(action)
 
                 episode_reward += reward
                 observation = next_observation
@@ -328,15 +326,30 @@ def main():
     if not os.path.exists(model_dir):
         os.mkdir(model_dir)
 
+    if env_config["use_static_item_resource_demand"]:
+        env_config["num_resources"] = STATIC_NUM_RESOURCES
+
+    q = QNet(
+        n_features=env_config["num_items"] * (env_config["num_resources"] + 1),
+        n_actions=env_config["num_items"],
+        device=DEVICE
+    )
+    target_q = QNet(
+        n_features=env_config["num_items"] * (env_config["num_resources"] + 1),
+        n_actions=env_config["num_items"],
+        device=DEVICE
+    )
+    target_q.load_state_dict(q.state_dict())
+
     env = MkpEnv(env_config=env_config)
-    test_env = deepcopy(env)
+    validation_env = deepcopy(env)
 
     print("*" * 100)
 
-    use_wandb = False
+    use_wandb = True
     dqn = DQN(
-        model=QNet, model_dir=model_dir,
-        env=env, test_env=test_env, config=dqn_config, env_config=env_config, use_wandb=use_wandb
+        q=q, target_q=target_q, model_dir=model_dir,
+        env=env, validation_env=validation_env, config=dqn_config, env_config=env_config, use_wandb=use_wandb
     )
     dqn.train_loop()
 

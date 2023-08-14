@@ -5,9 +5,9 @@ import numpy as np
 np.set_printoptions(edgeitems=3, linewidth=100000, formatter=dict(float=lambda x: "%5.3f" % x))
 
 import torch
-from _2023_08._01_DQN_MKP.a_config import env_config, ENV_NAME, NUM_ITEMS, NUM_RESOURCES
+from _2023_08._01_DQN_MKP.a_config import env_config, ENV_NAME, NUM_ITEMS, NUM_RESOURCES, STATIC_NUM_RESOURCES
 from _2023_08._01_DQN_MKP.c_mkp_env import MkpEnv
-from _2023_08._02_DQN_ATTN_MKP.c_dqn_attn_train import QNetAttn
+from _2023_08._02_DQN_ATTN_MKP.f_dqn_attn_train import QNetAttn
 from _2023_08._01_DQN_MKP.g_dqn_and_or_tool_test import test
 
 DEVICE = torch.device("cpu")
@@ -18,11 +18,16 @@ def main(num_episodes, env_name):
     project_home = os.path.abspath(os.path.join(current_path, os.pardir))
     model_dir = os.path.join(project_home, "_02_DQN_ATTN_MKP", "models")
 
+    if env_config["use_static_item_resource_demand"]:
+        env_config["num_resources"] = STATIC_NUM_RESOURCES
+
     env = MkpEnv(env_config=env_config)
 
     print("*" * 100)
 
-    q = QNetAttn(n_features=NUM_ITEMS * (NUM_RESOURCES + 1), n_actions=NUM_ITEMS, device=DEVICE)
+    q = QNetAttn(
+        n_features=env_config["num_resources"] + 1, n_actions=env_config["num_items"], device=DEVICE
+    )
 
     model_params = torch.load(
         os.path.join(model_dir, "dqn_{0}_{1}_latest.pth".format(NUM_ITEMS, env_name))

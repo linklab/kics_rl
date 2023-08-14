@@ -6,7 +6,7 @@ import numpy as np
 np.set_printoptions(edgeitems=3, linewidth=100000, formatter=dict(float=lambda x: "%5.3f" % x))
 
 import torch
-from _2023_08._01_DQN_MKP.a_config import env_config, ENV_NAME, NUM_ITEMS, NUM_RESOURCES
+from _2023_08._01_DQN_MKP.a_config import env_config, ENV_NAME, NUM_ITEMS, NUM_RESOURCES, STATIC_NUM_RESOURCES
 from _2023_08._01_DQN_MKP.c_mkp_env import MkpEnv
 from _2023_08._01_DQN_MKP.e_qnet import QNet
 from _2023_08._01_DQN_MKP.b_mkp_with_google_or_tools import solve
@@ -84,6 +84,9 @@ def main(num_episodes, env_name):
     current_path = os.path.dirname(os.path.realpath(__file__))
     project_home = os.path.abspath(os.path.join(current_path, os.pardir))
     model_dir = os.path.join(project_home, "_01_DQN_MKP", "models")
+
+    if env_config["use_static_item_resource_demand"]:
+        env_config["num_resources"] = STATIC_NUM_RESOURCES
 
     env = MkpEnv(env_config=env_config)
 
