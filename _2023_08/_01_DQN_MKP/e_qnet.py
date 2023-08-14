@@ -12,12 +12,22 @@ class QNet(nn.Module):
 
         self.n_features = n_features
         self.n_actions = n_actions
-        self.fc1 = nn.Linear(n_features, 128)
-        self.norm1 = nn.LayerNorm(normalized_shape=128)
-        self.fc2 = nn.Linear(128, 128)
-        self.norm2 = nn.LayerNorm(normalized_shape=128)
-        self.fc3 = nn.Linear(128, n_actions)
-        self.norm3 = nn.LayerNorm(normalized_shape=n_actions)
+
+        hiddens = 256
+
+        self.layers = nn.Sequential(
+            nn.Linear(n_features, hiddens),
+            nn.LayerNorm(hiddens),
+            nn.LeakyReLU(),
+            nn.Linear(hiddens, hiddens),
+            nn.LayerNorm(hiddens),
+            nn.LeakyReLU(),
+            nn.Linear(hiddens, hiddens),
+            nn.LayerNorm(hiddens),
+            nn.LeakyReLU(),
+            nn.Linear(hiddens, n_actions)
+        )
+
         self.device = device
         self.to(device)
 
@@ -27,9 +37,8 @@ class QNet(nn.Module):
 
         if x.ndim == 3:
             x = torch.flatten(x, start_dim=1)
-        x = F.leaky_relu(self.norm1(self.fc1(x)))
-        x = F.leaky_relu(self.norm2(self.fc2(x)))
-        x = self.norm3(self.fc3(x))
+
+        x = self.layers(x)
 
         return x
 

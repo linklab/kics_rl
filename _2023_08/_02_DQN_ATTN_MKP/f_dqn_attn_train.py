@@ -6,6 +6,7 @@ import numpy as np
 np.set_printoptions(edgeitems=3, linewidth=100000, formatter=dict(float=lambda x: "%5.3f" % x))
 
 import torch
+from torchinfo import summary
 
 from _2023_08._01_DQN_MKP.a_config import env_config, dqn_config, STATIC_NUM_RESOURCES
 from _2023_08._01_DQN_MKP.c_mkp_env import MkpEnv
@@ -36,12 +37,14 @@ def main():
     )
     target_q.load_state_dict(q.state_dict())
 
+    summary(q, input_size=(1, env_config["num_resources"] + 1))
+
     env = MkpEnv(env_config=env_config)
     validation_env = deepcopy(env)
 
     print("*" * 100)
 
-    use_wandb = True
+    use_wandb = False
     dqn = DQN(
         q=q, target_q=target_q, model_dir=model_dir,
         env=env, validation_env=validation_env, config=dqn_config, env_config=env_config, use_wandb=use_wandb

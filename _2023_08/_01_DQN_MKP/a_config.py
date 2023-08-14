@@ -60,13 +60,13 @@ dqn_config = {
     "gamma": 1.0,                                       # 감가율
     "steps_between_train": 4,                           # 훈련 사이의 환경 스텝 수
     "target_sync_step_interval": 100 * NUM_ITEMS,       # 기존 Q 모델을 타깃 Q 모델로 동기화시키는 step 간격
-    "replay_buffer_size": 5000 * NUM_ITEMS,             # 리플레이 버퍼 사이즈
+    "replay_buffer_size": 1000 * NUM_ITEMS,             # 리플레이 버퍼 사이즈
     "epsilon_start": 0.95,                              # Epsilon 초기 값
     "epsilon_end": 0.01,                                # Epsilon 최종 값
-    "epsilon_final_scheduled_percent": 0.75,            # Epsilon 최종 값으로 스케줄되는 마지막 에피소드 비율
+    "epsilon_final_scheduled_percent": 0.25,            # Epsilon 최종 값으로 스케줄되는 마지막 에피소드 비율
     "print_episode_interval": 10,                       # Episode 통계 출력에 관한 에피소드 간격
     "train_num_episodes_before_next_validation": 500,   # 검증 사이 마다 각 훈련 episode 간격
-    "validation_num_episodes": 50,                      # 검증에 수행하는 에피소드 횟수
+    "validation_num_episodes": 100,                     # 검증에 수행하는 에피소드 횟수
     "early_stop_patience": NUM_ITEMS * 3,               # episode_reward가 개선될 때까지 기다리는 기간
     "double_dqn": True
 }

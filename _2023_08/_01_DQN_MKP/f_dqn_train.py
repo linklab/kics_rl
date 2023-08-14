@@ -7,6 +7,8 @@ import numpy as np
 np.set_printoptions(edgeitems=3, linewidth=100000, formatter=dict(float=lambda x: "%5.3f" % x))
 
 import torch
+from torchinfo import summary
+
 print("TORCH VERSION:", torch.__version__)
 
 import torch.nn.functional as F
@@ -340,6 +342,8 @@ def main():
         device=DEVICE
     )
     target_q.load_state_dict(q.state_dict())
+
+    summary(q, input_size=(1, env_config["num_items"] * (env_config["num_resources"] + 1)))
 
     env = MkpEnv(env_config=env_config)
     validation_env = deepcopy(env)
