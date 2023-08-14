@@ -14,6 +14,7 @@ from _2023_08._02_DQN_ATTN_MKP.e_qnet_attn import QNetAttn
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+
 def main():
     current_path = os.path.dirname(os.path.realpath(__file__))
     project_home = os.path.abspath(os.path.join(current_path, os.pardir))
