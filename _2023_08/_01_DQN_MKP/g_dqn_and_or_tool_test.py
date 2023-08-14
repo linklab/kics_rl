@@ -1,4 +1,4 @@
-import os
+import os, sys
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
 from datetime import datetime, timedelta
@@ -6,10 +6,10 @@ import numpy as np
 np.set_printoptions(edgeitems=3, linewidth=100000, formatter=dict(float=lambda x: "%5.3f" % x))
 
 import torch
-from a_config import env_config, ENV_NAME, NUM_ITEMS
-from c_mkp_env import MkpEnv
-from e_qnet import QNet, MODEL_DIR
-from b_mkp_with_google_or_tools import solve
+from _2023_08._01_DQN_MKP.a_config import env_config, ENV_NAME, NUM_ITEMS, NUM_RESOURCES
+from _2023_08._01_DQN_MKP.c_mkp_env import MkpEnv
+from _2023_08._01_DQN_MKP.e_qnet import QNet
+from _2023_08._01_DQN_MKP.b_mkp_with_google_or_tools import solve
 
 DEVICE = torch.device("cpu")
 
@@ -42,8 +42,8 @@ def test(env, q, num_episodes):
         rl_episode_reward_lst[i] = info["VALUE_ALLOCATED"]
         rl_duration_lst.append(rl_duration)
         print("*** RL RESULT ***")
-        print("EPISODE_STEPS: {1:3d}, EPISODE REWARD: {2:5.3f}, INFO:{3}".format(
-            i, episode_steps, episode_reward, info
+        print("EPISODE_STEPS: {1:3d}, EPISODE REWARD: {2:5.3f}, VALUE_ALLOCATED: {3}, INFO:{4}".format(
+            i, episode_steps, episode_reward, info['VALUE_ALLOCATED'], info
         ))
 
         print("*** GOOGLE OR TOOL RESULT ***")
@@ -60,8 +60,8 @@ def test(env, q, num_episodes):
         or_tool_duration_lst.append(or_tool_duration)
 
         print("*** RL VS. OR_TOOL COMPARISON ***")
-        print("RL_EPISODE_REWARD (UTILIZATION) | OR_TOOL_SOLUTION (UTILIZATION) ---> {0:>6.3f} |{1:>6.3f}".format(
-            episode_reward, or_tool_solution
+        print("RL_SOLUTION | OR_TOOL_SOLUTION ---> {0:>6.3f} | {1:>6.3f}".format(
+            info['VALUE_ALLOCATED'], or_tool_solution
         ))
 
         print("RL_DURATION | OR_TOOL_DURATION ---> {0} | {1}".format(
@@ -81,14 +81,18 @@ def test(env, q, num_episodes):
 
 
 def main(num_episodes, env_name):
+    current_path = os.path.dirname(os.path.realpath(__file__))
+    project_home = os.path.abspath(os.path.join(current_path, os.pardir))
+    model_dir = os.path.join(project_home, "_01_DQN_MKP", "models")
+
     env = MkpEnv(env_config=env_config)
 
     print("*" * 100)
 
-    q = QNet(n_features=(NUM_ITEMS + 1) * 4, n_actions=NUM_ITEMS, device=DEVICE)
+    q = QNet(n_features=NUM_ITEMS * (NUM_RESOURCES + 1), n_actions=NUM_ITEMS, device=DEVICE)
 
     model_params = torch.load(
-        os.path.join(MODEL_DIR, "dqn_{0}_{1}_latest.pth".format(NUM_ITEMS, env_name))
+        os.path.join(model_dir, "dqn_{0}_{1}_latest.pth".format(NUM_ITEMS, env_name))
     )
     q.load_state_dict(model_params)
 

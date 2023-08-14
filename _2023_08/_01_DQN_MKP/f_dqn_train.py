@@ -1,10 +1,8 @@
-# https://gymnasium.farama.org/environments/classic_control/cart_pole/
-import time
-import os
-from copy import deepcopy
-
+import os, sys
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
+import time
+from copy import deepcopy
 import numpy as np
 np.set_printoptions(edgeitems=3, linewidth=100000, formatter=dict(float=lambda x: "%5.3f" % x))
 
@@ -15,9 +13,9 @@ import wandb
 from datetime import datetime
 from shutil import copyfile
 
-from a_config import env_config, dqn_config, ENV_NAME, NUM_ITEMS
-from c_mkp_env import MkpEnv
-from e_qnet import QNet, ReplayBuffer, Transition, MODEL_DIR
+from _2023_08._01_DQN_MKP.a_config import env_config, dqn_config, ENV_NAME, NUM_ITEMS, NUM_RESOURCES
+from _2023_08._01_DQN_MKP.c_mkp_env import MkpEnv
+from _2023_08._01_DQN_MKP.e_qnet import QNet, ReplayBuffer, Transition
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -25,12 +23,13 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 class EarlyStopModelSaver:
     """주어진 patience 이후로 episode_reward가 개선되지 않으면 학습을 조기 중지"""
 
-    def __init__(self, patience):
+    def __init__(self, patience, model_dir):
         """
         Args:
             patience (int): episode_reward가 개선될 때까지 기다리는 기간
         """
         self.patience = patience
+        self.model_dir = model_dir
         self.counter = 0
         self.max_test_episode_reward = -np.inf
         self.model_filename_saved = None
@@ -69,21 +68,23 @@ class EarlyStopModelSaver:
             num_items, env_name,
             current_time, validation_episode_reward_avg, n_episode
         )
-        filename = os.path.join(MODEL_DIR, filename)
+        filename = os.path.join(self.model_dir, filename)
         torch.save(q.state_dict(), filename)
         self.model_filename_saved = filename
         print("*** MODEL SAVED TO {0}".format(filename))
 
         latest_file_name = "dqn_{0}_{1}_latest.pth".format(NUM_ITEMS, env_name)
         copyfile(
-            src=os.path.join(MODEL_DIR, filename),
-            dst=os.path.join(MODEL_DIR, latest_file_name)
+            src=os.path.join(self.model_dir, filename),
+            dst=os.path.join(self.model_dir, latest_file_name)
         )
-        print("*** MODEL UPDATED TO {0}".format(os.path.join(MODEL_DIR, latest_file_name)))
+        print("*** MODEL UPDATED TO {0}".format(os.path.join(self.model_dir, latest_file_name)))
 
 
 class DQN:
-    def __init__(self, env, test_env, config, env_config, use_wandb):
+    def __init__(self, model, model_dir, env, test_env, config, env_config, use_wandb):
+        self.model = model
+        self.model_dir = model_dir
         self.env = env
         self.test_env = test_env
         self.use_wandb = use_wandb
@@ -130,8 +131,8 @@ class DQN:
         self.epsilon_scheduled_last_episode = self.max_num_episodes * self.epsilon_final_scheduled_percent
 
         # network
-        self.q = QNet(n_features=(NUM_ITEMS + 1) * 4, n_actions=NUM_ITEMS, device=DEVICE)
-        self.target_q = QNet(n_features=(NUM_ITEMS + 1) * 4, n_actions=NUM_ITEMS, device=DEVICE)
+        self.q = self.model(n_features=NUM_ITEMS * (NUM_RESOURCES + 1), n_actions=NUM_ITEMS, device=DEVICE)
+        self.target_q = self.model(n_features=NUM_ITEMS * (NUM_RESOURCES + 1), n_actions=NUM_ITEMS, device=DEVICE)
 
         self.target_q.load_state_dict(self.q.state_dict())
         self.optimizer = optim.Adam(self.q.parameters(), lr=self.learning_rate)
@@ -143,7 +144,9 @@ class DQN:
         self.total_time_steps = 0
         self.training_time_steps = 0
 
-        self.early_stop_model_saver = EarlyStopModelSaver(patience=config["early_stop_patience"])
+        self.early_stop_model_saver = EarlyStopModelSaver(
+            patience=config["early_stop_patience"], model_dir=self.model_dir
+        )
 
     def epsilon_scheduled(self, current_episode):
         fraction = min(current_episode / self.epsilon_scheduled_last_episode, 1.0)
@@ -259,6 +262,7 @@ class DQN:
         with torch.no_grad():
             if self.double_dqn:
                 q_prime_out = self.q(next_observations)
+
                 q_prime_out = q_prime_out.masked_fill(action_masks, -float('inf'))
                 # target_argmax_action.shape: [256, 1]
                 target_argmax_action = torch.argmax(q_prime_out, dim=-1, keepdim=True)
@@ -315,13 +319,23 @@ class DQN:
 
 
 def main():
+    current_path = os.path.dirname(os.path.realpath(__file__))
+    project_home = os.path.abspath(os.path.join(current_path, os.pardir))
+    if project_home not in sys.path:
+        sys.path.append(project_home)
+
+    model_dir = os.path.join(project_home, "_01_DQN_MKP", "models")
+    if not os.path.exists(model_dir):
+        os.mkdir(model_dir)
+
     env = MkpEnv(env_config=env_config)
     test_env = deepcopy(env)
 
     print("*" * 100)
 
-    use_wandb = True
+    use_wandb = False
     dqn = DQN(
+        model=QNet, model_dir=model_dir,
         env=env, test_env=test_env, config=dqn_config, env_config=env_config, use_wandb=use_wandb
     )
     dqn.train_loop()

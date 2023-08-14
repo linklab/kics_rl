@@ -1,5 +1,3 @@
-import os
-import sys
 import random
 from torch import nn
 import torch.nn.functional as F
@@ -9,19 +7,11 @@ import numpy as np
 
 print("TORCH VERSION:", torch.__version__)
 
-CURRENT_PATH = os.path.dirname(os.path.realpath(__file__))
-PROJECT_HOME = os.path.abspath(os.path.join(CURRENT_PATH, os.pardir))
-if PROJECT_HOME not in sys.path:
-    sys.path.append(PROJECT_HOME)
-
-MODEL_DIR = os.path.join(PROJECT_HOME, "_01_DQN_MKP", "models")
-if not os.path.exists(MODEL_DIR):
-    os.mkdir(MODEL_DIR)
-
 
 class QNet(nn.Module):
     def __init__(self, n_features, n_actions, device='cpu'):
         super(QNet, self).__init__()
+
         self.n_features = n_features
         self.n_actions = n_actions
         self.fc1 = nn.Linear(n_features, 128)

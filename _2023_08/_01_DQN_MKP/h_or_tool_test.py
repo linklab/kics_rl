@@ -6,9 +6,9 @@ from datetime import datetime, timedelta
 import numpy as np
 np.set_printoptions(edgeitems=3, linewidth=100000, formatter=dict(float=lambda x: "%5.3f" % x))
 
-from a_config import env_config, NUM_ITEMS
-from c_mkp_env import MkpEnv
-from b_mkp_with_google_or_tools import solve
+from _2023_08._01_DQN_MKP.a_config import env_config, NUM_ITEMS
+from _2023_08._01_DQN_MKP.c_mkp_env import MkpEnv
+from _2023_08._01_DQN_MKP.b_mkp_with_google_or_tools import solve
 
 
 def main(num_episodes):
