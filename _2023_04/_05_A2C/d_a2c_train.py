@@ -58,7 +58,6 @@ class A2C:
         total_train_start_time = time.time()
 
         validation_episode_reward_avg = -1500
-        policy_loss = critic_loss = avg_mu_v = avg_std_v = avg_action = avg_action_prob = 0.0
 
         is_terminated = False
 
@@ -86,7 +85,7 @@ class A2C:
                 done = terminated or truncated
 
                 if self.time_steps % self.batch_size == 0:
-                    policy_loss, critic_loss, avg_mu_v, avg_std_v, avg_action, avg_action_prob = self.train()
+                    policy_loss, critic_loss, avg_mu_v, avg_std_v, avg_action = self.train()
                     self.buffer.clear()
 
             total_training_time = time.time() - total_train_start_time
@@ -125,7 +124,6 @@ class A2C:
                     "[TRAIN] avg_mu_v": avg_mu_v,
                     "[TRAIN] avg_std_v": avg_std_v,
                     "[TRAIN] avg_action": avg_action,
-                    "[TRAIN] avg_action_prob": avg_action_prob,
                     "Training Episode": n_episode,
                     "Training Steps": self.training_time_steps,
                 })
@@ -183,7 +181,6 @@ class A2C:
             mu_v.mean().item(),
             std_v.mean().item(),
             actions.type(torch.float32).mean().item(),
-            action_log_probs.exp().mean().item()
         )
 
     def model_save(self, validation_episode_reward_avg):
@@ -239,7 +236,7 @@ def main():
         "print_episode_interval": 20,               # Episode 통계 출력에 관한 에피소드 간격
         "train_num_episodes_before_next_test": 100,                  # 검증 사이 마다 각 훈련 episode 간격
         "validation_num_episodes": 3,               # 검증에 수행하는 에피소드 횟수
-        "episode_reward_avg_solved": -200,          # 훈련 종료를 위한 테스트 에피소드 리워드의 Average
+        "episode_reward_avg_solved": -100,          # 훈련 종료를 위한 테스트 에피소드 리워드의 Average
     }
 
     use_wandb = True
