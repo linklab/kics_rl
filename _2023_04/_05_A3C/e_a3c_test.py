@@ -4,7 +4,6 @@ os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
 import gymnasium as gym
 import torch
-import torch.multiprocessing as mp
 
 from c_actor_and_critic import MODEL_DIR, Actor
 
@@ -35,17 +34,6 @@ def test(env, actor, num_episodes):
             i, episode_steps, episode_reward
         ))
 
-
-# def worker_process(global_actor, env_name, num_episodes):
-#     env = gym.make(env_name, render_mode="human")
-#     local_actor = Actor(n_features=3, n_actions=1)
-#     local_actor.load_state_dict(global_actor.state_dict())
-#
-#     test(env, local_actor, num_episodes=num_episodes)
-#
-#     env.close()
-
-
 def main_play(num_episodes, env_name):
     env = gym.make(env_name, render_mode="human")
 
@@ -57,24 +45,8 @@ def main_play(num_episodes, env_name):
 
     env.close()
 
-    # global_actor = Actor(n_features=3, n_actions=1)
-    # model_params = torch.load(os.path.join(MODEL_DIR, "a3c_{0}_latest.pth".format(env_name)))
-    # global_actor.load_state_dict(model_params)
-    #
-    # processes = []
-    #
-    # for _ in range(num_workers):
-    #     p = mp.Process(target=worker_process, args=(global_actor, env_name, num_episodes))
-    #     p.start()
-    #     processes.append(p)
-    #
-    # for p in processes:
-    #     p.join()
-
-
 if __name__ == "__main__":
     NUM_EPISODES = 3
     ENV_NAME = "Pendulum-v1"
-    # NUM_WORKERS = 3  # Number of worker processes for asynchronous execution
-    # main_play(num_episodes=NUM_EPISODES, env_name=ENV_NAME, num_workers=NUM_WORKERS)
+
     main_play(num_episodes=NUM_EPISODES, env_name=ENV_NAME)
