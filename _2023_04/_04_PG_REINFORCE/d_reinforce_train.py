@@ -166,21 +166,19 @@ class REINFORCE:
             # normalization
             returns_baseline = (returns_baseline - torch.mean(returns_baseline)) / (torch.std(returns_baseline) + 1e-7)
             log_pi_returns = action_log_probs * returns_baseline
-            log_pi_returns_sum = log_pi_returns.sum()
             # print(
             #     returns.shape, values.shape, returns_baseline.shape, action_log_probs.shape, log_pi_returns.shape,
-            #     log_pi_returns_sum.shape, "!!!"
+            #     log_pi_returns.shape, "!!!"
             # )
         else:
             # normalization
             returns = (returns - torch.mean(returns)) / (torch.std(returns) + 1e-7)
             log_pi_returns = action_log_probs * returns
-            log_pi_returns_sum = log_pi_returns.sum()
             # print(
-            # returns.shape, action_log_probs.shape, log_pi_returns.shape, log_pi_returns_sum.shape, "!!!"
+            # returns.shape, action_log_probs.shape, log_pi_returns.shape, log_pi_returns.shape, "!!!"
             # )
 
-        policy_loss = -1.0 * log_pi_returns_sum
+        policy_loss = -1.0 * log_pi_returns.sum()
 
         self.optimizer.zero_grad()
         policy_loss.backward()
