@@ -9,7 +9,6 @@ os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 import gymnasium as gym
 import numpy as np
 import torch
-import torch.optim as optim
 import torch.nn.functional as F
 from torch.distributions import Normal
 import wandb
@@ -17,7 +16,7 @@ from datetime import datetime
 from shutil import copyfile
 
 from c_actor_and_critic import MODEL_DIR, Actor, Critic, Transition, Buffer
-
+from a3c_shared_adam import SharedAdam
 
 class A3CAgent:
     def __init__(self,
@@ -26,7 +25,6 @@ class A3CAgent:
                  global_critic,
                  global_actor_optimizer,
                  global_critic_optimizer,
-                 global_counter,
                  use_wandb,
                  env,
                  test_env,
@@ -34,6 +32,7 @@ class A3CAgent:
         self.env_name = config["env_name"]
         self.env = env
         self.test_env = test_env
+        self.is_terminated = False
 
         self.global_actor = global_actor
         self.global_critic = global_critic
@@ -71,23 +70,16 @@ class A3CAgent:
                 config=config
             )
 
-    def train_loop(self, global_counter):
+    def train_loop(self):
         total_train_start_time = time.time()
 
         policy_loss = critic_loss = avg_mu_v = avg_std_v = avg_action = avg_action_prob = 0.0
 
         is_terminated = False
 
-        # Additional attributes
-        last_validation_step = 0
-
         for n_episode in range(1, self.max_num_episodes + 1):
-            # print(global_counter.value, "global_counter")
-
             self.local_actor.load_state_dict(self.global_actor.state_dict())
             self.local_critic.load_state_dict(self.global_critic.state_dict())
-
-            global_counter.value += 1
 
             episode_reward = 0
 
@@ -126,6 +118,7 @@ class A3CAgent:
                     "Elapsed Time: {}".format(total_training_time)
                 )
 
+
             if 0 == n_episode % self.train_num_episode_before_next_test:
                 validation_episode_reward_lst, validation_episode_reward_avg = self.validate()
 
@@ -158,15 +151,6 @@ class A3CAgent:
                     "Training Steps": self.training_time_steps,
                 })
 
-            with global_counter.get_lock():
-                if global_counter.value - last_validation_step >= 100:
-                    last_validation_step = global_counter.value
-                    validation_episode_reward_lst, validation_episode_reward_avg = self.validate()
-
-                    print("[Validation] Episode Reward List: {0}, Average: {1:.3f}".format(
-                        validation_episode_reward_lst, validation_episode_reward_avg
-                    ))
-
             if is_terminated:
                 break
 
@@ -181,14 +165,18 @@ class A3CAgent:
         next_values = self.local_critic(next_observations).squeeze(dim=-1)
         next_values[dones] = 0.0
 
-        q_values = rewards.squeeze(
-            dim=-1) + self.gamma * next_values  # Отделенный для предотвращения распространения градиентов в нижний критик через цели
+        q_values = rewards.squeeze(dim=-1) + self.gamma * next_values
 
         # CRITIC UPDATE
         critic_loss = F.mse_loss(q_values.detach(), values)
         self.critic_optimizer.zero_grad()
+        for i in self.local_critic.parameters():
+            i.grad = None
         critic_loss.backward()
+        for local_param, global_param in zip(self.local_critic.parameters(), self.global_critic.parameters()):
+            global_param.grad = local_param.grad
         self.critic_optimizer.step()
+        self.local_critic.load_state_dict(self.global_critic.state_dict())
 
         # Advantage calculating
         advantages = q_values - values
@@ -209,8 +197,13 @@ class A3CAgent:
 
         # Actor Update
         self.actor_optimizer.zero_grad()
+        for i in self.local_actor.parameters():
+            i.grad = None
         actor_loss.backward()
+        for local_param, global_param in zip(self.local_actor.parameters(), self.global_actor.parameters()):
+            global_param.grad = local_param.grad
         self.actor_optimizer.step()
+        self.local_actor.load_state_dict(self.global_actor.state_dict())
 
         return (
             actor_loss.item(), critic_loss.item(), mu.mean().item(), std.mean().item(),
@@ -220,21 +213,14 @@ class A3CAgent:
     def validate(self):
         episode_rewards = np.zeros(self.validation_num_episodes)
 
-        # test_env = gym.make(self.env_name)
-
-        # Synchronize the global model to the local model
-        self.local_actor.load_state_dict(self.global_actor.state_dict())
-        self.local_critic.load_state_dict(self.global_critic.state_dict())
-
         for i in range(self.validation_num_episodes):
-            # test_env = gym.make(self.env_name)
             observation, _ = self.test_env.reset()
             episode_reward = 0
 
             done = False
 
             while not done:
-                action = self.global_actor.get_action(observation, exploration=False)
+                action = self.local_actor.get_action(observation, exploration=False)
                 next_observation, reward, terminated, truncated, _ = self.test_env.step(action * 2)
                 episode_reward += reward
                 observation = next_observation
@@ -245,21 +231,17 @@ class A3CAgent:
         return episode_rewards, np.average(episode_rewards)
 
     def model_save(self, validation_episode_reward_avg):
-        filename = f"a3c_{self.env_name}_{validation_episode_reward_avg:.1f}_{self.current_time}.pth"
-        torch.save({
-            'actor_state_dict': self.local_actor.actor.state_dict(),
-            'critic_state_dict': self.local_critic.state_dict(),
-            'actor_optimizer_state_dict': self.actor_optimizer.state_dict(),
-            'critic_optimizer_state_dict': self.critic_optimizer.state_dict(),
-            'validation_reward': validation_episode_reward_avg
-        }, os.path.join(MODEL_DIR, filename))
+        filename = "a3c_{0}_{1:4.1f}_{2}.pth".format(
+            self.env_name, validation_episode_reward_avg, self.current_time
+        )
+        torch.save(self.local_actor.state_dict(), os.path.join(MODEL_DIR, filename))
+
         copyfile(
             src=os.path.join(MODEL_DIR, filename),
-            dst=os.path.join(MODEL_DIR, f"a3c_{self.env_name}_latest.pth")
+            dst=os.path.join(MODEL_DIR, "a3c_{0}_latest.pth".format(self.env_name))
         )
 
-
-def worker(process_id, global_actor, global_critic, actor_optimizer, critic_optimizer, global_counter, use_wandb, test_env,
+def worker(process_id, global_actor, global_critic, actor_optimizer, critic_optimizer, use_wandb, test_env,
            config):
     env_name = config["env_name"]
     env = gym.make(env_name)
@@ -270,25 +252,21 @@ def worker(process_id, global_actor, global_critic, actor_optimizer, critic_opti
         global_critic=global_critic,
         global_actor_optimizer=actor_optimizer,
         global_critic_optimizer=critic_optimizer,
-        global_counter=global_counter,
         use_wandb=use_wandb,
         env=env,
         test_env=test_env,
-        config=config)
+        config=config,
+    )
 
-    agent.train_loop(global_counter)
-
-
-
+    agent.train_loop()
 
 def main():
     ENV_NAME = "Pendulum-v1"
 
     config = {
         "env_name": ENV_NAME,  # 환경의 이름
-        "num_workers": 4,
+        "num_workers": 7,
         "max_num_episodes": 50_000,  # 훈련을 위한 최대 에피소드 횟수
-        # "batch_size": 64,
         "batch_size": 32,  # 훈련시 배치에서 한번에 가져오는 랜덤 배치 사이즈
         "learning_rate": 0.0005,  # 학습율
         "gamma": 0.99,  # 감가율
@@ -308,28 +286,18 @@ def main():
     global_actor = Actor(n_features=3, n_actions=1).share_memory()
     global_critic = Critic(n_features=3).share_memory()
 
-    actor_optimizer = optim.Adam(global_actor.parameters(), lr=config["learning_rate"])
-    critic_optimizer = optim.Adam(global_critic.parameters(), lr=config["learning_rate"])
-
-
-
-
-    # Create global_counter variable in multiprocessing shared memory
-    global_counter = multiprocessing.Value('i', 0)
+    actor_optimizer = SharedAdam(global_actor.parameters(), lr=config["learning_rate"], betas=(0.92, 0.999))
+    critic_optimizer = SharedAdam(global_critic.parameters(), lr=config["learning_rate"], betas=(0.92, 0.999))
 
     processes = []
 
     for i in range(num_workers):
         p = multiprocessing.Process(
             target=worker,
-            args=(i, global_actor, global_critic, actor_optimizer, critic_optimizer, global_counter, use_wandb, test_env, config)
+            args=(i, global_actor, global_critic, actor_optimizer, critic_optimizer, use_wandb, test_env, config)
         )
         p.start()
         processes.append(p)
-
-    while True:
-        time.sleep(0.1)
-        print("global_counter", global_counter.value)
 
     for p in processes:
         p.join()

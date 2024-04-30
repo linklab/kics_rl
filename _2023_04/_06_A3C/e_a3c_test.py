@@ -1,5 +1,6 @@
 # https://gymnasium.farama.org/environments/classic_control/pendulum/
 import os
+
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
 import gymnasium as gym
@@ -34,16 +35,18 @@ def test(env, actor, num_episodes):
             i, episode_steps, episode_reward
         ))
 
+
 def main_play(num_episodes, env_name):
     env = gym.make(env_name, render_mode="human")
 
-    global_actor = Actor(n_features=3, n_actions=1)
+    actor = Actor(n_features=3, n_actions=1)
     model_params = torch.load(os.path.join(MODEL_DIR, "a3c_{0}_latest.pth".format(env_name)))
-    global_actor.load_state_dict(model_params)
+    actor.load_state_dict(model_params)
 
-    test(env, global_actor, num_episodes=num_episodes)
+    test(env=env, actor=actor, num_episodes=num_episodes)
 
     env.close()
+
 
 if __name__ == "__main__":
     NUM_EPISODES = 3
