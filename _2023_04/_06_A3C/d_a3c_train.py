@@ -18,6 +18,7 @@ from shutil import copyfile
 from c_actor_and_critic import MODEL_DIR, Actor, Critic, Transition, Buffer
 from a3c_shared_adam import SharedAdam
 
+
 class A3CAgent:
     def __init__(self,
                  worker_id,
@@ -117,7 +118,6 @@ class A3CAgent:
                     "Training Steps: {:5,},".format(self.training_time_steps),
                     "Elapsed Time: {}".format(total_training_time)
                 )
-
 
             if 0 == n_episode % self.train_num_episode_before_next_test:
                 validation_episode_reward_lst, validation_episode_reward_avg = self.validate()
@@ -241,6 +241,7 @@ class A3CAgent:
             dst=os.path.join(MODEL_DIR, "a3c_{0}_latest.pth".format(self.env_name))
         )
 
+
 def worker(process_id, global_actor, global_critic, actor_optimizer, critic_optimizer, use_wandb, test_env,
            config):
     env_name = config["env_name"]
@@ -259,6 +260,7 @@ def worker(process_id, global_actor, global_critic, actor_optimizer, critic_opti
     )
 
     agent.train_loop()
+
 
 def main():
     ENV_NAME = "Pendulum-v1"
@@ -301,6 +303,7 @@ def main():
 
     for p in processes:
         p.join()
+
 
 if __name__ == '__main__':
     main()
