@@ -4,8 +4,6 @@ import os
 import multiprocessing
 import copy
 
-os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
-
 import gymnasium as gym
 import numpy as np
 import torch
@@ -18,6 +16,22 @@ from shutil import copyfile
 from c_actor_and_critic import MODEL_DIR, Actor, Critic, Transition, Buffer
 from a3c_shared_adam import SharedAdam
 
+os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
+
+
+class SharedCounter:
+    def __init__(self):
+        self.time_steps = multiprocessing.Value('i', 0)
+        self.training_time_steps = multiprocessing.Value('i', 0)
+
+    def increment_time_steps(self, value=1):
+        with self.time_steps.get_lock():
+            self.time_steps.value += value
+
+    def increment_training_time_steps(self, value=1):
+        with self.training_time_steps.get_lock():
+            self.training_time_steps.value += value
+
 
 class A3CAgent:
     def __init__(self,
@@ -26,7 +40,8 @@ class A3CAgent:
                  global_critic,
                  global_actor_optimizer,
                  global_critic_optimizer,
-                 use_wandb,
+                 counter,
+                 run_wandb,
                  env,
                  test_env,
                  config):
@@ -57,19 +72,20 @@ class A3CAgent:
 
         self.buffer = Buffer()
 
+        self.counter = counter
         self.time_steps = 0
         self.training_time_steps = 0
 
-        self.use_wandb = use_wandb
+        self.run_wandb = run_wandb
 
         self.current_time = datetime.now().astimezone().strftime('%Y-%m-%d_%H-%M-%S')
 
-        if self.use_wandb:
-            self.wandb = wandb.init(
-                project="A3C_{0}".format(self.env_name),
-                name=self.current_time,
-                config=config
-            )
+        # if self.use_wandb:
+        #     self.wandb = wandb.init(
+        #         project="A3C_{0}".format(self.env_name),
+        #         name=self.current_time,
+        #         config=config
+        #     )
 
     def train_loop(self):
         total_train_start_time = time.time()
@@ -88,6 +104,7 @@ class A3CAgent:
             done = False
 
             while not done:
+                self.counter.increment_time_steps()
                 self.time_steps += 1
                 action = self.local_actor.get_action(observation)
                 next_observation, reward, terminated, truncated, _ = self.env.step(action * 2)
@@ -101,6 +118,11 @@ class A3CAgent:
                 observation = next_observation
                 done = terminated or truncated
 
+                # if self.counter.time_steps.value % self.batch_size == 0:
+                #     policy_loss, critic_loss, avg_mu_v, avg_std_v, avg_action, avg_action_prob = self.train()
+                #
+                #     self.buffer.clear()
+
                 if self.time_steps % self.batch_size == 0:
                     policy_loss, critic_loss, avg_mu_v, avg_std_v, avg_action, avg_action_prob = self.train()
 
@@ -111,11 +133,11 @@ class A3CAgent:
 
             if n_episode % self.print_episode_interval == 0:
                 print(
-                    "[Episode {:3,}, Steps {:6,}]".format(n_episode, self.time_steps),
+                    "[Episode {:3,}, Steps {:6,}]".format(n_episode, self.counter.time_steps.value),
                     "Episode Reward: {:>9.3f},".format(episode_reward),
                     "Police Loss: {:>7.3f},".format(policy_loss),
                     "Critic Loss: {:>7.3f},".format(critic_loss),
-                    "Training Steps: {:5,},".format(self.training_time_steps),
+                    "Training Steps: {:5,},".format(self.counter.training_time_steps.value),
                     "Elapsed Time: {}".format(total_training_time)
                 )
 
@@ -128,16 +150,16 @@ class A3CAgent:
 
                 if validation_episode_reward_avg > self.episode_reward_avg_solved:
                     print("Solved in {0:,} steps ({1:,} training steps)!".format(
-                        self.time_steps, self.training_time_steps
+                        self.counter.time_steps.value, self.counter.training_time_steps.value
                     ))
                     self.model_save(validation_episode_reward_avg)
                     is_terminated = True
                     # break
 
-            if not self.use_wandb:
+            if not self.run_wandb:
                 pass
             else:
-                self.wandb.log({
+                self.run_wandb.log({
                     "[VALIDATION] Mean Episode Reward ({0} Episodes)".format(
                         self.validation_num_episodes): episode_reward,
                     "[TRAIN] Episode Reward": episode_reward,
@@ -148,14 +170,17 @@ class A3CAgent:
                     "[TRAIN] avg_action": avg_action,
                     "[TRAIN] avg_action_prob": avg_action_prob,
                     "Training Episode": n_episode,
-                    "Training Steps": self.training_time_steps,
+                    # "Training Steps": self.training_time_steps,
+                    "Training Steps": self.counter.training_time_steps.value,
                 })
 
             if is_terminated:
                 break
 
     def train(self):
+        self.local_actor.train()
         self.training_time_steps += 1
+        self.counter.increment_training_time_steps()
 
         # Getting values from buffer
         observations, actions, next_observations, rewards, dones = self.buffer.get()
@@ -211,6 +236,7 @@ class A3CAgent:
         )
 
     def validate(self):
+        self.local_actor.eval()
         episode_rewards = np.zeros(self.validation_num_episodes)
 
         for i in range(self.validation_num_episodes):
@@ -242,7 +268,7 @@ class A3CAgent:
         )
 
 
-def worker(process_id, global_actor, global_critic, actor_optimizer, critic_optimizer, use_wandb, test_env,
+def worker(process_id, global_actor, global_critic, actor_optimizer, critic_optimizer, counter, run_wandb, test_env,
            config):
     env_name = config["env_name"]
     env = gym.make(env_name)
@@ -253,7 +279,8 @@ def worker(process_id, global_actor, global_critic, actor_optimizer, critic_opti
         global_critic=global_critic,
         global_actor_optimizer=actor_optimizer,
         global_critic_optimizer=critic_optimizer,
-        use_wandb=use_wandb,
+        counter=counter,
+        run_wandb=run_wandb,
         env=env,
         test_env=test_env,
         config=config,
@@ -267,9 +294,9 @@ def main():
 
     config = {
         "env_name": ENV_NAME,  # 환경의 이름
-        "num_workers": 7,
+        "num_workers": 3,
         "max_num_episodes": 50_000,  # 훈련을 위한 최대 에피소드 횟수
-        "batch_size": 32,  # 훈련시 배치에서 한번에 가져오는 랜덤 배치 사이즈
+        "batch_size": 64,  # 훈련시 배치에서 한번에 가져오는 랜덤 배치 사이즈
         "learning_rate": 0.0005,  # 학습율
         "gamma": 0.99,  # 감가율
         "entropy_beta": 0.01,  # 엔트로피 가중치
@@ -291,18 +318,35 @@ def main():
     actor_optimizer = SharedAdam(global_actor.parameters(), lr=config["learning_rate"], betas=(0.92, 0.999))
     critic_optimizer = SharedAdam(global_critic.parameters(), lr=config["learning_rate"], betas=(0.92, 0.999))
 
+    manager = multiprocessing.Manager()
+    counter = SharedCounter()
+
+    if use_wandb:
+        current_time = datetime.now().astimezone().strftime('%Y-%m-%d_%H-%M-%S')
+        run_wandb = wandb.init(
+            project="A3C_{0}".format(config["env_name"]),
+            name=current_time,
+            config=config
+        )
+    else:
+        run_wandb = None
+
     processes = []
 
     for i in range(num_workers):
         p = multiprocessing.Process(
             target=worker,
-            args=(i, global_actor, global_critic, actor_optimizer, critic_optimizer, use_wandb, test_env, config)
+            args=(
+            i, global_actor, global_critic, actor_optimizer, critic_optimizer, counter, run_wandb, test_env, config)
         )
         p.start()
         processes.append(p)
 
     for p in processes:
         p.join()
+
+    if use_wandb and run_wandb:
+        run_wandb.finish()
 
 
 if __name__ == '__main__':
