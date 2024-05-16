@@ -14,7 +14,7 @@ PROJECT_HOME = os.path.abspath(os.path.join(CURRENT_PATH, os.pardir))
 if PROJECT_HOME not in sys.path:
     sys.path.append(PROJECT_HOME)
 
-MODEL_DIR = os.path.join(PROJECT_HOME, "A3C_w_Dropout", "models")
+MODEL_DIR = os.path.join(PROJECT_HOME, "_06_A3C", "models")
 if not os.path.exists(MODEL_DIR):
     os.mkdir(MODEL_DIR)
 
@@ -27,6 +27,9 @@ class Actor(nn.Module):
         self.fc1 = nn.Linear(n_features, 128)
         self.fc2 = nn.Linear(128, 128)
         self.mu = nn.Linear(128, n_actions)
+        # self.log_std = nn.Parameter(torch.zeros(n_actions))   # Starting with small std deviation
+
+        # ln_e(x) = 1.0 --> x = e^1.0 = 2.71
         log_std_param = nn.Parameter(torch.full((n_actions,), 1.0))
         self.register_parameter("log_std", log_std_param)
         self.to(DEVICE)
@@ -34,10 +37,13 @@ class Actor(nn.Module):
     def forward(self, x):
         if isinstance(x, np.ndarray):
             x = torch.as_tensor(x, dtype=torch.float32, device=DEVICE)
+        # x = torch.as_tensor(x, dtype=torch.float32, device=DEVICE)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
-        mu = torch.tanh(self.mu(x))
-        std = self.log_std.exp().clamp(min=2.0, max=50)
+        mu = F.tanh(self.mu(x))
+        # mu = F.tanh(self.mu(x)) * 2  # Scale output to -2 ro 2 (action space bounds)
+        std = self.log_std.exp().clamp(min=2.0, max=50)  # Clamping for numerical stability
+
         return mu, std
 
     def get_action(self, x, exploration=True):
@@ -52,19 +58,22 @@ class Actor(nn.Module):
         return action
 
 class Critic(nn.Module):
+    '''
+       Value network V(s_t) = E[G_t | s_t] to use as a baseline in the reinforce
+       update. This a Neural Net with 1 hidden layer
+    '''
+
     def __init__(self, n_features=3):
         super(Critic, self).__init__()
         self.fc1 = nn.Linear(n_features, 128)
         self.fc2 = nn.Linear(128, 128)
         self.fc3 = nn.Linear(128, 1)
-        self.dropout = nn.Dropout(0.5)
 
     def forward(self, x):
         if isinstance(x, np.ndarray):
             x = torch.tensor(x, dtype=torch.float32, device=DEVICE)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
-        x = self.dropout(x)
         x = self.fc3(x)
         return x
 
@@ -97,12 +106,14 @@ class Buffer:
         # Convert to ndarray for speed up cuda
         observations = np.array(observations)
         next_observations = np.array(next_observations)
+        # observations.shape, next_observations.shape: (32, 4), (32, 4)
 
         actions = np.array(actions)
         actions = np.expand_dims(actions, axis=-1) if actions.ndim == 1 else actions
         rewards = np.array(rewards)
         rewards = np.expand_dims(rewards, axis=-1) if rewards.ndim == 1 else rewards
         dones = np.array(dones, dtype=bool)
+        # actions.shape, rewards.shape, dones.shape: (32, 1) (32, 1) (32,)
 
         # Convert to tensor
         observations = torch.tensor(observations, dtype=torch.float32, device=DEVICE)
