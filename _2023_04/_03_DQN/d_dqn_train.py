@@ -50,8 +50,8 @@ class DQN:
         self.epsilon_scheduled_last_episode = self.max_num_episodes * self.epsilon_final_scheduled_percent
 
         # network
-        self.q = QNet(n_features=8, n_actions=4)
-        self.target_q = QNet(n_features=8, n_actions=4)
+        self.q = QNet(n_features=4, n_actions=2)
+        self.target_q = QNet(n_features=4, n_actions=2)
         self.target_q.load_state_dict(self.q.state_dict())
 
         self.optimizer = optim.Adam(self.q.parameters(), lr=self.learning_rate)
@@ -242,15 +242,15 @@ class DQN:
 
 
 def main():
-    ENV_NAME = "LunarLander-v2"
+    ENV_NAME = "CartPole-v1"
 
     env = gym.make(ENV_NAME)
     test_env = gym.make(ENV_NAME)
 
     config = {
         "env_name": ENV_NAME,                       # 환경의 이름
-        "max_num_episodes": 10_000,                  # 훈련을 위한 최대 에피소드 횟수
-        "batch_size": 128,                           # 훈련시 배치에서 한번에 가져오는 랜덤 배치 사이즈
+        "max_num_episodes": 1_500,                  # 훈련을 위한 최대 에피소드 횟수
+        "batch_size": 32,                           # 훈련시 배치에서 한번에 가져오는 랜덤 배치 사이즈
         "learning_rate": 0.0001,                    # 학습율
         "gamma": 0.99,                              # 감가율
         "steps_between_train": 1,                   # 훈련 사이의 환경 스텝 수
@@ -262,7 +262,7 @@ def main():
         "print_episode_interval": 10,               # Episode 통계 출력에 관한 에피소드 간격
         "train_num_episodes_before_next_test": 50,                   # 검증 사이 마다 각 훈련 episode 간격
         "validation_num_episodes": 3,                     # 검증에 수행하는 에피소드 횟수
-        "episode_reward_avg_solved": 250,           # 훈련 종료를 위한 검증 에피소드 리워드의 Average
+        "episode_reward_avg_solved": 490,           # 훈련 종료를 위한 검증 에피소드 리워드의 Average
     }
 
     use_wandb = True

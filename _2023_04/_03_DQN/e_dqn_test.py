@@ -37,7 +37,7 @@ def test(env, q, num_episodes):
 def main_play(num_episodes, env_name):
     env = gym.make(env_name, render_mode="human")
 
-    q = QNet(n_features=8, n_actions=4)
+    q = QNet(n_features=4, n_actions=2)
     model_params = torch.load(os.path.join(MODEL_DIR, "dqn_{0}_latest.pth".format(env_name)))
     q.load_state_dict(model_params)
 
@@ -48,6 +48,6 @@ def main_play(num_episodes, env_name):
 
 if __name__ == "__main__":
     NUM_EPISODES = 3
-    ENV_NAME = "LunarLander-v2"
+    ENV_NAME = "CartPole-v1"
 
     main_play(num_episodes=NUM_EPISODES, env_name=ENV_NAME)
