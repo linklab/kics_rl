@@ -12,7 +12,7 @@ import wandb
 from datetime import datetime
 from shutil import copyfile
 
-from c_qnet import QNet, ReplayBuffer, Transition, MODEL_DIR
+from a_qnet import QNet, ReplayBuffer, Transition, MODEL_DIR
 
 
 class DQN:
@@ -27,7 +27,7 @@ class DQN:
 
         if self.use_wandb:
             self.wandb = wandb.init(
-                project="DQN_{0}".format(self.env_name),
+                project="DUELING_DQN_{0}".format(self.env_name),
                 name=self.current_time,
                 config=config
             )
@@ -173,13 +173,13 @@ class DQN:
         q_values = q_out.gather(dim=-1, index=actions)
 
         with torch.no_grad():
-            q_prime_out = self.target_q(next_observations)
-            # next_state_values.shape: torch.Size([32, 1])
-            max_q_prime = q_prime_out.max(dim=1, keepdim=True).values
-            max_q_prime[dones] = 0.0
+            # Target network to evaluate the value of the next states
+            target_q_values = self.target_q(next_observations)  # shape: [batch_size, num_actions]
+            max_target_q_values = target_q_values.max(dim=1, keepdim=True).values  # shape: [batch_size, 1]
+            max_target_q_values[dones] = 0.0  # Set target to 0 for terminal states
 
-            # target_state_action_values.shape: torch.Size([32, 1])
-            targets = rewards + self.gamma * max_q_prime
+            # Calculate the targets
+            targets = rewards + self.gamma * max_target_q_values
 
         # loss is just scalar torch value
         loss = F.mse_loss(targets.detach(), q_values)
@@ -207,14 +207,14 @@ class DQN:
         return loss.item()
 
     def model_save(self, validation_episode_reward_avg):
-        filename = "dqn_{0}_{1:4.1f}_{2}.pth".format(
+        filename = "dueling_dqn_{0}_{1:4.1f}_{2}.pth".format(
             self.env_name, validation_episode_reward_avg, self.current_time
         )
         torch.save(self.q.state_dict(), os.path.join(MODEL_DIR, filename))
 
         copyfile(
             src=os.path.join(MODEL_DIR, filename),
-            dst=os.path.join(MODEL_DIR, "dqn_{0}_latest.pth".format(self.env_name))
+            dst=os.path.join(MODEL_DIR, "dueling_dqn_{0}_latest.pth".format(self.env_name))
         )
 
     def validate(self):

@@ -1,11 +1,11 @@
+import collections
 import os
 import sys
-import random
 from torch import nn
-import torch.nn.functional as F
-import collections
 import torch
 import numpy as np
+from torch.distributions import Normal
+import torch.nn.functional as F
 
 print("TORCH VERSION:", torch.__version__)
 
@@ -14,22 +14,65 @@ PROJECT_HOME = os.path.abspath(os.path.join(CURRENT_PATH, os.pardir))
 if PROJECT_HOME not in sys.path:
     sys.path.append(PROJECT_HOME)
 
-MODEL_DIR = os.path.join(PROJECT_HOME, "_03_DQN", "models")
+MODEL_DIR = os.path.join(PROJECT_HOME, "_05_A2C", "models")
 if not os.path.exists(MODEL_DIR):
     os.mkdir(MODEL_DIR)
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-class QNet(nn.Module):
-    def __init__(self, n_features=8, n_actions=4):
-        super(QNet, self).__init__()
-        self.n_features = n_features
-        self.n_actions = n_actions
-        self.fc1 = nn.Linear(n_features, 128)  # fully connected
+class Actor(nn.Module):
+    def __init__(self, n_features=3, n_actions=1):
+        super(Actor, self).__init__()
+        self.fc1 = nn.Linear(n_features, 128)
         self.fc2 = nn.Linear(128, 128)
-        self.fc3 = nn.Linear(128, n_actions)
+        self.mu = nn.Linear(128, n_actions)
+
+        # ln_e(x) = 1.0 --> x = e^1.0 = 2.71
+        log_std_param = nn.Parameter(torch.full((n_actions,), 1.0))
+        self.register_parameter("log_std", log_std_param)
         self.to(DEVICE)
+
+    def forward(self, x):
+        if isinstance(x, np.ndarray):
+            x = torch.tensor(x, dtype=torch.float32, device=DEVICE)
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        mu_v = F.tanh(self.mu(x))
+
+        std_v = self.log_std.exp()
+        std_v = torch.clamp(std_v, min=2.0, max=50)
+        # print(
+        #     "count_positive_mu: {0:>3}, mean_mu: {1}, mean_var: {2}".format(
+        #         torch.count_nonzero(mu_v > 0.0).item(),
+        #         mu_v.mean().item(),
+        #         std_v.mean().item(),
+        # ))
+        return mu_v, std_v
+
+    def get_action(self, x, exploration=True):
+        mu_v, std_v = self.forward(x)
+
+        if exploration:
+            dist = Normal(loc=mu_v, scale=std_v)
+            action = dist.sample()
+            action = torch.clamp(action, min=-1.0, max=1.0).detach().numpy()
+        else:
+            action = mu_v.detach().numpy()
+        return action
+
+
+class Critic(nn.Module):
+    '''
+    Value network V(s_t) = E[G_t | s_t] to use as a baseline in the reinforce
+    update. This a Neural Net with 1 hidden layer
+    '''
+
+    def __init__(self, n_features=3):
+        super(Critic, self).__init__()
+        self.fc1 = nn.Linear(n_features, 128)
+        self.fc2 = nn.Linear(128, 128)
+        self.fc3 = nn.Linear(128, 1)
 
     def forward(self, x):
         if isinstance(x, np.ndarray):
@@ -39,16 +82,6 @@ class QNet(nn.Module):
         x = self.fc3(x)
         return x
 
-    def get_action(self, obs, epsilon=0.1):
-        # random.random(): 0.0과 1.0사이의 임의의 값을 반환
-        if random.random() < epsilon:
-            action = random.randrange(0, self.n_actions)
-        else:
-            q_values = self.forward(obs)
-            action = torch.argmax(q_values, dim=-1)
-            action = action.item()
-        return action  # argmax: 가장 큰 값에 대응되는 인덱스 반환
-
 
 Transition = collections.namedtuple(
     typename='Transition',
@@ -56,9 +89,9 @@ Transition = collections.namedtuple(
 )
 
 
-class ReplayBuffer:
-    def __init__(self, capacity):
-        self.buffer = collections.deque(maxlen=capacity)
+class Buffer:
+    def __init__(self):
+        self.buffer = collections.deque()
 
     def size(self):
         return len(self.buffer)
@@ -72,11 +105,9 @@ class ReplayBuffer:
     def clear(self):
         self.buffer.clear()
 
-    def sample(self, batch_size):
-        # Get random index
-        indices = np.random.choice(len(self.buffer), size=batch_size, replace=False)
+    def get(self):
         # Sample
-        observations, actions, next_observations, rewards, dones = zip(*[self.buffer[idx] for idx in indices])
+        observations, actions, next_observations, rewards, dones = zip(*self.buffer)
 
         # Convert to ndarray for speed up cuda
         observations = np.array(observations)

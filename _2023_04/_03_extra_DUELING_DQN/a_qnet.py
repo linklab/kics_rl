@@ -14,7 +14,7 @@ PROJECT_HOME = os.path.abspath(os.path.join(CURRENT_PATH, os.pardir))
 if PROJECT_HOME not in sys.path:
     sys.path.append(PROJECT_HOME)
 
-MODEL_DIR = os.path.join(PROJECT_HOME, "_03_DQN", "models")
+MODEL_DIR = os.path.join(PROJECT_HOME, "_03_extra_DUELING_DQN", "models")
 if not os.path.exists(MODEL_DIR):
     os.mkdir(MODEL_DIR)
 
@@ -28,16 +28,18 @@ class QNet(nn.Module):
         self.n_actions = n_actions
         self.fc1 = nn.Linear(n_features, 128)  # fully connected
         self.fc2 = nn.Linear(128, 128)
-        self.fc3 = nn.Linear(128, n_actions)
-        self.to(DEVICE)
+        self.advantage = nn.Linear(128, n_actions)
+        self.value = nn.Linear(128, 1)
 
     def forward(self, x):
         if isinstance(x, np.ndarray):
             x = torch.tensor(x, dtype=torch.float32, device=DEVICE)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
-        x = self.fc3(x)
-        return x
+        advantage = self.advantage(x)
+        value = self.value(x)
+        q_values = value + (advantage - advantage.mean(dim=-1, keepdim=True))
+        return q_values
 
     def get_action(self, obs, epsilon=0.1):
         # random.random(): 0.0과 1.0사이의 임의의 값을 반환

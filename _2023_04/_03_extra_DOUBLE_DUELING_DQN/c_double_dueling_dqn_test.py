@@ -5,7 +5,7 @@ os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 import gymnasium as gym
 import torch
 
-from c_qnet import QNet, MODEL_DIR
+from a_qnet import QNet, MODEL_DIR
 
 
 def test(env, q, num_episodes):
@@ -38,7 +38,7 @@ def main_play(num_episodes, env_name):
     env = gym.make(env_name, render_mode="human")
 
     q = QNet(n_features=8, n_actions=4)
-    model_params = torch.load(os.path.join(MODEL_DIR, "dqn_{0}_latest.pth".format(env_name)))
+    model_params = torch.load(os.path.join(MODEL_DIR, "double_dueling_dqn_{0}_latest.pth".format(env_name)))
     q.load_state_dict(model_params)
 
     test(env, q, num_episodes=num_episodes)
