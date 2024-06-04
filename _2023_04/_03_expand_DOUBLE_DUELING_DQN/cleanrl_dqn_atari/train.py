@@ -3,14 +3,16 @@ import os
 import random
 import time
 from dataclasses import dataclass
+from shutil import copyfile
 
 import gymnasium as gym
+from datetime import datetime
 import numpy as np
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import tyro
+import wandb
 from wrappers import (
     ClipRewardEnv,
     EpisodicLifeEnv,
@@ -18,34 +20,25 @@ from wrappers import (
     MaxAndSkipEnv,
     NoopResetEnv,
 )
+from q_net import QNetwork, MODEL_DIR
 from buffers import ReplayBuffer
-from torch.utils.tensorboard import SummaryWriter
 
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 @dataclass
 class Args:
     exp_name: str = os.path.basename(__file__)[: -len(".py")]
     """the name of this experiment"""
-    seed: int = 1
-    """seed of the experiment"""
     torch_deterministic: bool = True
     """if toggled, `torch.backends.cudnn.deterministic=False`"""
-    cuda: bool = True
-    """if toggled, cuda will be enabled by default"""
     track: bool = False
     """if toggled, this experiment will be tracked with Weights and Biases"""
-    wandb_project_name: str = "cleanRL"
+    wandb_project_name: str = "DDDQN"
     """the wandb's project name"""
     wandb_entity: str = None
     """the entity (team) of wandb's project"""
     capture_video: bool = False
     """whether to capture videos of the agent performances (check out `videos` folder)"""
-    save_model: bool = False
-    """whether to save model into the `runs/{run_name}` folder"""
-    upload_model: bool = False
-    """whether to upload the saved model to huggingface"""
-    hf_entity: str = ""
-    """the user or org name of the model repository from the Hugging Face Hub"""
 
     # Algorithm specific arguments
     env_id: str = "BreakoutNoFrameskip-v4"
@@ -72,13 +65,214 @@ class Args:
     """the ending epsilon for exploration"""
     exploration_fraction: float = 0.10
     """the fraction of `total-timesteps` it takes from start-e to go end-e"""
-    learning_starts: int = 30000
+    learning_starts: int = 3000
     """timestep to start learning"""
     train_frequency: int = 4
     """the frequency of training"""
+    print_episode_interval: int = 10
+    """Episode 통계 출력에 관한 에피소드 간격"""
+    max_num_episodes: int = 10000
+    """최대 에피소드 길이"""
+    train_num_episodes_before_next_test: int = 50
+    """validation 사이마다 각 훈련 episode 간격"""
+    episode_reward_avg_solved: int = 300
+    """훈련 조기 종료 validation reward cut"""
+    validation_num_episodes: int = 3
+    """validation에 수행하는 episode 횟수"""
 
 
-def make_env(env_id, seed, idx, capture_video, run_name):
+args = tyro.cli(Args)
+
+
+class DDDQN:
+    def __init__(self, env, test_env, run_name, use_wandb):
+        self.envs = env
+        self.test_env = test_env
+        self.run_name = run_name
+        self.use_wandb = use_wandb
+
+        self.env_name = args.env_id
+
+        self.current_time = datetime.now().astimezone().strftime('%Y-%m-%d_%H-%M-%S')
+
+        if self.use_wandb:
+            self.wandb = wandb.init(
+                project="DDDQN_{0}".format(self.env_name),
+                name=self.current_time,
+                config=vars(args)
+            )
+
+        # network
+        self.q_network = QNetwork(self.envs).to(DEVICE)
+        self.target_network = QNetwork(self.envs).to(DEVICE)
+        self.target_network.load_state_dict(self.q_network.state_dict())
+
+        self.optimizer = optim.Adam(self.q_network.parameters(), lr=args.learning_rate)
+
+        # agent
+        self.rb = ReplayBuffer(
+            args.buffer_size,
+            self.envs.single_observation_space,
+            self.envs.single_action_space,
+            DEVICE,
+            optimize_memory_usage=True,
+            handle_timeout_termination=False,
+        )
+
+        self.global_counter = 0
+        self.time_steps = 0
+        self.total_time_steps = 0
+        self.training_time_steps = 0
+
+        self.epsilon = linear_schedule(args.start_e, args.end_e, args.exploration_fraction * args.total_timesteps,
+                                       self.global_counter)
+
+    def train_loop(self):
+        # episode counter
+        n_episode = 1
+        episode_reward = 0
+        loss = 0.0
+
+        total_train_start_time = time.time()
+
+        is_terminated = False
+
+        # TRY NOT TO MODIFY: start the game
+        obs, _ = self.envs.reset()
+        for global_step in range(args.total_timesteps):
+            # ALGO LOGIC: put action logic here
+            epsilon = self.epsilon
+            actions = self.q_network.get_action(torch.Tensor(obs).to(DEVICE), epsilon)
+
+            # TRY NOT TO MODIFY: execute the game and log data.
+            next_obs, rewards, terminations, truncations, infos = self.envs.step(actions)
+
+            episode_reward += rewards.squeeze(-1)
+
+            # TRY NOT TO MODIFY: save data to reply buffer; handle `final_observation`
+            real_next_obs = next_obs.copy()
+            for idx, trunc in enumerate(truncations):
+                if trunc:
+                    real_next_obs[idx] = infos["final_observation"][idx]
+            self.rb.add(obs, real_next_obs, actions, rewards, terminations, infos)
+
+            # TRY NOT TO MODIFY: CRUCIAL step easy to overlook
+            obs = next_obs
+
+            # ALGO LOGIC: training.
+            if global_step > args.learning_starts:
+                if global_step % args.train_frequency == 0:
+                    loss = self.train()
+
+            # TRY NOT TO MODIFY: record rewards for plotting purposes
+            if "final_info" in infos:
+                for info in infos["final_info"]:
+                    if info and "episode" in info:
+                        if n_episode % args.print_episode_interval == 0:
+                            total_training_time = time.time() - total_train_start_time
+                            total_training_time = time.strftime('%H:%M:%S', time.gmtime(total_training_time))
+                            print(
+                                "[Episode {:3,}, Time Steps {:6,}]".format(n_episode, global_step),
+                                "Episode Reward: {:>5},".format(episode_reward),
+                                "Replay buffer: {:>6,},".format(self.rb.size()),
+                                "Loss: {:6.5f},".format(loss),
+                                "Epsilon: {:4.2f},".format(epsilon),
+                                "Elapsed Time: {}".format(total_training_time)
+                            )
+                        if n_episode % args.train_num_episodes_before_next_test == 0:
+                            validation_episode_reward_lst, validation_episode_reward_avg = self.validate()
+
+                            print("[Validation Episode Reward: {0}] Average: {1:.3f}".format(
+                                validation_episode_reward_lst, validation_episode_reward_avg
+                            ))
+
+                            if validation_episode_reward_avg > args.episode_reward_avg_solved:
+                                print("Solved in {0:,} steps ({1:,} training steps)!".format(
+                                    self.time_steps, self.training_time_steps
+                                ))
+                                self.save_model(validation_episode_reward_avg)
+                                is_terminated = True
+
+                        n_episode += 1
+                        episode_reward = 0
+
+            self.global_counter = global_step
+            if is_terminated:
+                break
+        total_training_time = time.time() - total_train_start_time
+        total_training_time = time.strftime('%H:%M:%S', time.gmtime(total_training_time))
+        print("Total Training End : {}".format(total_training_time))
+        self.wandb.finish()
+
+    def train(self):
+        data = self.rb.sample(args.batch_size)
+        # state_action_values.shape: torch.Size([32, 1])
+        q_out = self.q_network(data.observations)
+        q_values = q_out.gather(dim=-1, index=data.actions)
+
+        with torch.no_grad():
+            q_prime_out = self.q_network(data.next_observations)  # online network를 사용하여 다음 상태에서의 행동을 선택
+            best_action = q_prime_out.argmax(dim=1)
+            target_q_values = self.target_network(data.next_observations)
+            target_q_values[data.dones.squeeze(-1)] = 0.0
+
+            # Calculate the targets
+            targets = data.rewards + args.gamma * target_q_values.gather(dim=1,
+                                                                         index=best_action.unsqueeze(-1))
+
+        # loss is just scalar torch value
+        loss = F.mse_loss(targets.detach(), q_values)
+
+        # optimize the model
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
+
+        # update target network
+        if self.global_counter % args.target_network_frequency == 0:
+            for target_network_param, q_network_param in zip(self.target_network.parameters(),
+                                                             self.q_network.parameters()):
+                target_network_param.data.copy_(
+                    args.tau * q_network_param.data + (1.0 - args.tau) * target_network_param.data
+                )
+        return loss.item()
+
+    def save_model(self, validation_episode_reward_avg):
+        filename = "dddqn_{0}_{1:4.1f}_{2}.pth".format(
+            self.env_name, validation_episode_reward_avg, self.current_time
+        )
+        torch.save(self.q_network.state_dict(), os.path.join(MODEL_DIR, filename))
+
+        copyfile(
+            src=os.path.join(MODEL_DIR, filename),
+            dst=os.path.join(MODEL_DIR, "double_dueling_dqn_{0}_latest.pth".format(self.env_name))
+        )
+
+    def validate(self):
+        episode_reward_lst = np.zeros(shape=(args.validation_num_episodes,), dtype=float)
+
+        for i in range(args.validation_num_episodes):
+            episode_reward = 0
+
+            observation, _ = self.test_env.reset()
+
+            done = False
+
+            while not done:
+                action = self.q_network.get_action(torch.Tensor(observation).to(DEVICE), epsilon=0.0)
+
+                next_observation, reward, terminated, truncated, _ = self.test_env.step(action)
+
+                episode_reward += reward.squeeze(-1)
+                observation = next_observation
+                done = terminated or truncated
+
+            episode_reward_lst[i] = episode_reward
+
+        return episode_reward_lst, np.average(episode_reward_lst)
+
+
+def make_env(env_id, idx, capture_video, run_name):
     def thunk():
         if capture_video and idx == 0:
             env = gym.make(env_id, render_mode="rgb_array")
@@ -96,38 +290,9 @@ def make_env(env_id, seed, idx, capture_video, run_name):
         env = gym.wrappers.ResizeObservation(env, (84, 84))
         env = gym.wrappers.GrayScaleObservation(env)
         env = gym.wrappers.FrameStack(env, 4)
-
-        env.action_space.seed(seed)
         return env
 
     return thunk
-
-
-# ALGO LOGIC: initialize agent here:
-class QNetwork(nn.Module):
-    def __init__(self, env):
-        super().__init__()
-        self.network = nn.Sequential(
-            nn.Conv2d(4, 32, 8, stride=4),
-            nn.ReLU(),
-            nn.Conv2d(32, 64, 4, stride=2),
-            nn.ReLU(),
-            nn.Conv2d(64, 64, 3, stride=1),
-            nn.ReLU(),
-            nn.Flatten(),
-            nn.Linear(3136, 512),
-            nn.ReLU(),
-        )
-        self.advantage = nn.Linear(512, env.single_action_space.n)
-        self.value = nn.Linear(512, 1)
-
-    def forward(self, x):
-        x = x / 255.0   # 입력 이미지 데이터 픽셀 값을 (0~1) 범위로 정규화
-        x = self.network(x)
-        advantage = self.advantage(x)
-        value = self.value(x)
-        q_values = value + (advantage - advantage.mean(dim=-1, keepdim=True))
-        return q_values
 
 
 def linear_schedule(start_e: float, end_e: float, duration: int, t: int):
@@ -135,156 +300,28 @@ def linear_schedule(start_e: float, end_e: float, duration: int, t: int):
     return max(slope * t + start_e, end_e)
 
 
+def main():
+    run_name = f"{args.env_id}__{args.exp_name}__{int(time.time())}"
+
+    env = gym.vector.SyncVectorEnv(
+        [make_env(args.env_id, i, args.capture_video, run_name) for i in range(args.num_envs)]
+    )
+    assert isinstance(env.single_action_space, gym.spaces.Discrete), "only discrete action space is supported"
+
+    test_env = gym.vector.SyncVectorEnv(
+        [make_env(args.env_id, i, args.capture_video, run_name) for i in range(args.num_envs)]
+    )
+    assert isinstance(env.single_action_space, gym.spaces.Discrete), "only discrete action space is supported"
+
+    use_wandb = True
+    dddqn = DDDQN(
+        env=env, test_env=test_env, run_name=run_name, use_wandb=use_wandb
+    )
+    dddqn.train_loop()
+
+    env.close()
+    test_env.close()
+
+
 if __name__ == "__main__":
-
-    """ Ongoing migration: run the following command to install the new dependencies:
-    poetry run pip install "gymnasium[atari,accept-rom-license]==0.28.1"  "ale-py==0.8.1" """
-
-    args = tyro.cli(Args)
-    assert args.num_envs == 1, "vectorized envs are not supported at the moment"
-    run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
-    if args.track:
-        import wandb
-
-        wandb.init(
-            project=args.wandb_project_name,
-            entity=args.wandb_entity,
-            sync_tensorboard=True,
-            config=vars(args),
-            name=run_name,
-            monitor_gym=True,
-            save_code=True,
-        )
-    writer = SummaryWriter(f"runs/{run_name}")
-    writer.add_text(
-        "hyperparameters",
-        "|param|value|\n|-|-|\n%s" % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])),
-    )
-
-    # TRY NOT TO MODIFY: seeding
-    random.seed(args.seed)
-    np.random.seed(args.seed)
-    torch.manual_seed(args.seed)
-    torch.backends.cudnn.deterministic = args.torch_deterministic
-
-    device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
-
-    # env setup
-    envs = gym.vector.SyncVectorEnv(
-        [make_env(args.env_id, args.seed + i, i, args.capture_video, run_name) for i in range(args.num_envs)]
-    )
-    assert isinstance(envs.single_action_space, gym.spaces.Discrete), "only discrete action space is supported"
-
-    q_network = QNetwork(envs).to(device)
-    optimizer = optim.Adam(q_network.parameters(), lr=args.learning_rate)
-    target_network = QNetwork(envs).to(device)
-    target_network.load_state_dict(q_network.state_dict())
-
-    rb = ReplayBuffer(
-        args.buffer_size,
-        envs.single_observation_space,
-        envs.single_action_space,
-        device,
-        optimize_memory_usage=True,
-        handle_timeout_termination=False,
-    )
-    start_time = time.time()
-
-    # TRY NOT TO MODIFY: start the game
-    obs, _ = envs.reset(seed=args.seed)
-    for global_step in range(args.total_timesteps):
-        # ALGO LOGIC: put action logic here
-        epsilon = linear_schedule(args.start_e, args.end_e, args.exploration_fraction * args.total_timesteps, global_step)
-        if random.random() < epsilon:
-            actions = np.array([envs.single_action_space.sample() for _ in range(envs.num_envs)])
-        else:
-            q_values = q_network(torch.Tensor(obs).to(device))
-            actions = torch.argmax(q_values, dim=-1).cpu().numpy()
-
-        # TRY NOT TO MODIFY: execute the game and log data.
-        next_obs, rewards, terminations, truncations, infos = envs.step(actions)
-
-        # TRY NOT TO MODIFY: record rewards for plotting purposes
-        if "final_info" in infos:
-            for info in infos["final_info"]:
-                if info and "episode" in info:
-                    print(f"global_step={global_step}, episodic_return={info['episode']['r']}")
-                    writer.add_scalar("charts/episodic_return", info["episode"]["r"], global_step)
-                    writer.add_scalar("charts/episodic_length", info["episode"]["l"], global_step)
-
-        # TRY NOT TO MODIFY: save data to reply buffer; handle `final_observation`
-        real_next_obs = next_obs.copy()
-        for idx, trunc in enumerate(truncations):
-            if trunc:
-                real_next_obs[idx] = infos["final_observation"][idx]
-        rb.add(obs, real_next_obs, actions, rewards, terminations, infos)
-
-        # TRY NOT TO MODIFY: CRUCIAL step easy to overlook
-        obs = next_obs
-
-        # ALGO LOGIC: training.
-        if global_step > args.learning_starts:
-            if global_step % args.train_frequency == 0:
-                data = rb.sample(args.batch_size)
-                # state_action_values.shape: torch.Size([32, 1])
-                q_out = q_network(data.observations)
-                q_val = q_out.gather(-1, index=data.actions)
-
-                with torch.no_grad():
-                    q_prime_out = q_network(data.next_observations)  # online network를 사용하여 다음 상태에서의 행동을 선택
-                    best_action = q_prime_out.argmax(dim=1)
-                    target_q_values = target_network(data.next_observations)
-                    target_q_values[data.dones.squeeze(-1)] = 0.0
-
-                    # Calculate the targets
-                    targets = data.rewards + args.gamma * target_q_values.gather(dim=1, index=best_action.unsqueeze(-1))
-
-                # loss is just scalar torch value
-                loss = F.mse_loss(targets.detach(), q_val)
-
-                if global_step % 100 == 0:
-                    writer.add_scalar("losses/td_loss", loss, global_step)
-                    writer.add_scalar("losses/q_values", q_val.mean().item(), global_step)
-                    print("SPS:", int(global_step / (time.time() - start_time)))
-                    writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
-
-                # optimize the model
-                optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()
-
-            # update target network
-            if global_step % args.target_network_frequency == 0:
-                for target_network_param, q_network_param in zip(target_network.parameters(), q_network.parameters()):
-                    target_network_param.data.copy_(
-                        args.tau * q_network_param.data + (1.0 - args.tau) * target_network_param.data
-                    )
-
-    if args.save_model:
-        model_path = f"runs/{run_name}/{args.exp_name}.cleanrl_model"
-        torch.save(q_network.state_dict(), model_path)
-        print(f"model saved to {model_path}")
-        # from cleanrl_utils.evals.dqn_eval import evaluate
-
-        # episodic_returns = evaluate(
-        #     model_path,
-        #     make_env,
-        #     args.env_id,
-        #     eval_episodes=10,
-        #     run_name=f"{run_name}-eval",
-        #     Model=QNetwork,
-        #     device=device,
-        #     epsilon=0.05,
-        # )
-        # for idx, episodic_return in enumerate(episodic_returns):
-        #     writer.add_scalar("eval/episodic_return", episodic_return, idx)
-
-        # if args.upload_model:
-        #     from cleanrl_utils.huggingface import push_to_hub
-        #
-        #     repo_name = f"{args.env_id}-{args.exp_name}-seed{args.seed}"
-        #     repo_id = f"{args.hf_entity}/{repo_name}" if args.hf_entity else repo_name
-        #     push_to_hub(args, episodic_returns, repo_id, "DQN", f"runs/{run_name}", f"videos/{run_name}-eval")
-
-    envs.close()
-    writer.close()
+    main()
