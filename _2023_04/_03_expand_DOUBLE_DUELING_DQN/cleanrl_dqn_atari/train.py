@@ -124,9 +124,6 @@ class DDDQN:
         self.total_time_steps = 0
         self.training_time_steps = 0
 
-        self.epsilon = linear_schedule(args.start_e, args.end_e, args.exploration_fraction * args.total_timesteps,
-                                       self.global_counter)
-
     def train_loop(self):
         # episode counter
         n_episode = 1
@@ -141,7 +138,8 @@ class DDDQN:
         obs, _ = self.envs.reset()
         for global_step in range(args.total_timesteps):
             # ALGO LOGIC: put action logic here
-            epsilon = self.epsilon
+            epsilon = linear_schedule(args.start_e, args.end_e, args.exploration_fraction * args.total_timesteps,
+                                       global_step)
             actions = self.q_network.get_action(torch.Tensor(obs).to(DEVICE), epsilon)
 
             # TRY NOT TO MODIFY: execute the game and log data.
