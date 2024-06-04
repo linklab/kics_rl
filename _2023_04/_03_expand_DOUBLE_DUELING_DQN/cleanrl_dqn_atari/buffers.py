@@ -116,19 +116,20 @@ class BaseBuffer(ABC):
         """
         raise NotImplementedError()
 
-    def to_torch(self, array: np.ndarray, copy: bool = True) -> th.Tensor:
+    def to_torch(self, array: np.ndarray, dtype: th.dtype = None, copy: bool = True) -> th.Tensor:
         """
         Convert a numpy array to a PyTorch tensor.
         Note: it copies the data by default
 
         :param array:
+        :param dtype: The desired dtype of the returned tensor
         :param copy: Whether to copy or not the data (may be useful to avoid changing things
             by reference). This argument is inoperative if the device is not the CPU.
         :return:
         """
         if copy:
-            return th.tensor(array, device=self.device)
-        return th.as_tensor(array, device=self.device)
+            return th.tensor(array, dtype=dtype, device=self.device)
+        return th.as_tensor(array, dtype=dtype, device=self.device)
 
     @staticmethod
     def _normalize_obs(
@@ -212,11 +213,11 @@ class ReplayBuffer(BaseBuffer):
         )
 
         self.rewards = np.zeros((self.buffer_size, self.n_envs), dtype=np.float32)
-        self.dones = np.zeros((self.buffer_size, self.n_envs), dtype=np.float32)
+        self.dones = np.zeros((self.buffer_size, self.n_envs), dtype=bool)  # 변경된 부분: dtype을 bool로 설정
         # Handle timeouts termination properly if needed
         # see https://github.com/DLR-RM/stable-baselines3/issues/284
         self.handle_timeout_termination = handle_timeout_termination
-        self.timeouts = np.zeros((self.buffer_size, self.n_envs), dtype=np.float32)
+        self.timeouts = np.zeros((self.buffer_size, self.n_envs), dtype=bool)  # 변경된 부분: dtype을 bool로 설정
 
         if psutil is not None:
             total_memory_usage: float = (
@@ -263,10 +264,10 @@ class ReplayBuffer(BaseBuffer):
 
         self.actions[self.pos] = np.array(action)
         self.rewards[self.pos] = np.array(reward)
-        self.dones[self.pos] = np.array(done)
+        self.dones[self.pos] = np.array(done, dtype=bool)  # 변경된 부분: dtype을 bool로 설정
 
         if self.handle_timeout_termination:
-            self.timeouts[self.pos] = np.array([info.get("TimeLimit.truncated", False) for info in infos])
+            self.timeouts[self.pos] = np.array([info.get("TimeLimit.truncated", False) for info in infos], dtype=bool)  # 변경된 부분: dtype을 bool로 설정
 
         self.pos += 1
         if self.pos == self.buffer_size:
@@ -313,7 +314,9 @@ class ReplayBuffer(BaseBuffer):
             (self.dones[batch_inds, env_indices] * (1 - self.timeouts[batch_inds, env_indices])).reshape(-1, 1),
             self._normalize_reward(self.rewards[batch_inds, env_indices].reshape(-1, 1), env),
         )
-        return ReplayBufferSamples(*tuple(map(self.to_torch, data)))
+        return ReplayBufferSamples(
+            *tuple(map(lambda x, dtype=None: self.to_torch(x, dtype=dtype), data, [None, None, None, th.bool, None]))
+        )
 
     @staticmethod
     def _maybe_cast_dtype(dtype: np.typing.DTypeLike) -> np.typing.DTypeLike:

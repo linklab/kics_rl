@@ -72,7 +72,7 @@ class Args:
     """the ending epsilon for exploration"""
     exploration_fraction: float = 0.10
     """the fraction of `total-timesteps` it takes from start-e to go end-e"""
-    learning_starts: int = 80000
+    learning_starts: int = 1000
     """timestep to start learning"""
     train_frequency: int = 4
     """the frequency of training"""
@@ -228,23 +228,23 @@ if __name__ == "__main__":
                 data = rb.sample(args.batch_size)
                 # state_action_values.shape: torch.Size([32, 1])
                 q_out = q_network(data.observations)
-                q_values = q_out.gather(-1, index=data.actions)
+                q_val = q_out.gather(-1, index=data.actions)
 
                 with torch.no_grad():
                     q_prime_out = q_network(data.next_observations)  # online network를 사용하여 다음 상태에서의 행동을 선택
                     best_action = q_prime_out.argmax(dim=1)
                     target_q_values = target_network(data.next_observations)
-                    target_q_values[terminations] = 0.0
+                    target_q_values[data.dones.squeeze(-1)] = 0.0
 
                     # Calculate the targets
-                    targets = rewards + args.gamma * target_q_values.gather(dim=1, index=best_action.unsqueeze(-1))
+                    targets = data.rewards + args.gamma * target_q_values.gather(dim=1, index=best_action.unsqueeze(-1))
 
                 # loss is just scalar torch value
-                loss = F.mse_loss(targets.detach(), q_values)
+                loss = F.mse_loss(targets.detach(), q_val)
 
                 if global_step % 100 == 0:
                     writer.add_scalar("losses/td_loss", loss, global_step)
-                    writer.add_scalar("losses/q_values", q_values.mean().item(), global_step)
+                    writer.add_scalar("losses/q_values", q_val.mean().item(), global_step)
                     print("SPS:", int(global_step / (time.time() - start_time)))
                     writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
 
