@@ -1,11 +1,45 @@
 # https://gymnasium.farama.org/environments/classic_control/cart_pole/
 import os
-os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
+import time
 
 import gymnasium as gym
 import torch
+from wrappers import (
+    ClipRewardEnv,
+    EpisodicLifeEnv,
+    FireResetEnv,
+    MaxAndSkipEnv,
+    NoopResetEnv,
+)
 
 from q_net import QNetwork, MODEL_DIR
+from train import args
+os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
+
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
+def make_env(env_id, idx, capture_video, run_name):
+    def thunk():
+        if capture_video and idx == 0:
+            env = gym.make(env_id, render_mode="human")
+            env = gym.wrappers.RecordVideo(env, f"videos/{run_name}")
+        else:
+            env = gym.make(env_id)
+        env = gym.wrappers.RecordEpisodeStatistics(env)
+
+        env = NoopResetEnv(env, noop_max=30)
+        env = MaxAndSkipEnv(env, skip=4)
+        env = EpisodicLifeEnv(env)
+        if "FIRE" in env.unwrapped.get_action_meanings():
+            env = FireResetEnv(env)
+        env = ClipRewardEnv(env)
+        env = gym.wrappers.ResizeObservation(env, (84, 84))
+        env = gym.wrappers.GrayScaleObservation(env)
+        env = gym.wrappers.FrameStack(env, 4)
+        return env
+
+    return thunk
 
 
 def test(env, q, num_episodes):
@@ -21,11 +55,11 @@ def test(env, q, num_episodes):
 
         while not done:
             episode_steps += 1
-            action = q.get_action(observation, epsilon=0.0)
+            action = q.get_action(torch.Tensor(observation).to(DEVICE), epsilon=0.0)
 
             next_observation, reward, terminated, truncated, _ = env.step(action)
 
-            episode_reward += reward
+            episode_reward += reward.squeeze(-1)
             observation = next_observation
             done = terminated or truncated
 
@@ -35,9 +69,13 @@ def test(env, q, num_episodes):
 
 
 def main_play(num_episodes, env_name):
-    env = gym.make(env_name, render_mode="human")
+    run_name = f"{args.env_id}__{args.exp_name}__{int(time.time())}"
 
-    q = QNetwork(n_features=8, n_actions=4)
+    env = gym.vector.SyncVectorEnv(
+        [make_env(args.env_id, i, args.capture_video, run_name) for i in range(args.num_envs)]
+    )
+
+    q = QNetwork(env).to(DEVICE)
     model_params = torch.load(os.path.join(MODEL_DIR, "double_dueling_dqn_{0}_latest.pth".format(env_name)))
     q.load_state_dict(model_params)
 
@@ -48,6 +86,6 @@ def main_play(num_episodes, env_name):
 
 if __name__ == "__main__":
     NUM_EPISODES = 3
-    ENV_NAME = "LunarLander-v2"
+    ENV_NAME = "BreakoutNoFrameskip-v4"
 
     main_play(num_episodes=NUM_EPISODES, env_name=ENV_NAME)
