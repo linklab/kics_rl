@@ -96,7 +96,7 @@ class BaseBuffer(ABC):
         self.pos = 0
         self.full = False
 
-    def sample(self, batch_size: int, env):
+    def sample(self, batch_size: int, env=None):
         """
         :param batch_size: Number of element to sample
         :param env: associated gym VecEnv
@@ -108,7 +108,7 @@ class BaseBuffer(ABC):
         return self._get_samples(batch_inds, env=env)
 
     @abstractmethod
-    def _get_samples(self, batch_inds: np.ndarray):
+    def _get_samples(self, batch_inds: np.ndarray, env=None):
         """
         :param batch_inds:
         :param env:
@@ -133,14 +133,14 @@ class BaseBuffer(ABC):
     @staticmethod
     def _normalize_obs(
         obs: Union[np.ndarray, Dict[str, np.ndarray]],
-        env,
+        env=None,
     ) -> Union[np.ndarray, Dict[str, np.ndarray]]:
         if env is not None:
             return env.normalize_obs(obs)
         return obs
 
     @staticmethod
-    def _normalize_reward(reward: np.ndarray, env) -> np.ndarray:
+    def _normalize_reward(reward: np.ndarray, env=None) -> np.ndarray:
         if env is not None:
             return env.normalize_reward(reward).astype(np.float32)
         return reward
@@ -273,7 +273,7 @@ class ReplayBuffer(BaseBuffer):
             self.full = True
             self.pos = 0
 
-    def sample(self, batch_size: int, env):
+    def sample(self, batch_size: int, env=None):
         """
         Sample elements from the replay buffer.
         Custom sampling when using memory efficient variant,
@@ -295,7 +295,7 @@ class ReplayBuffer(BaseBuffer):
             batch_inds = np.random.randint(0, self.pos, size=batch_size)
         return self._get_samples(batch_inds, env=env)
 
-    def _get_samples(self, batch_inds: np.ndarray, env):
+    def _get_samples(self, batch_inds: np.ndarray, env=None):
         # Sample randomly the env idx
         env_indices = np.random.randint(0, high=self.n_envs, size=(len(batch_inds),))
 
