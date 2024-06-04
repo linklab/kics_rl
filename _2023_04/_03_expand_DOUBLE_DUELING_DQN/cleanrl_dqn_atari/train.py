@@ -130,6 +130,8 @@ class DDDQN:
         episode_reward = 0
         loss = 0.0
 
+        validation_episode_reward_avg = 0.0
+
         total_train_start_time = time.time()
 
         is_terminated = False
@@ -193,6 +195,17 @@ class DDDQN:
 
                         n_episode += 1
                         episode_reward = 0
+
+            if self.use_wandb:
+                self.wandb.log({
+                    "[VALIDATION] Mean Episode Reward ({0} Episodes)".format(args.validation_num_episodes): validation_episode_reward_avg,
+                    "[TRAIN] Episode Reward": episode_reward,
+                    "[TRAIN] Loss": loss if loss != 0.0 else 0.0,
+                    "[TRAIN] Epsilon": epsilon,
+                    "[TRAIN] Replay buffer": self.rb.size(),
+                    "Training Episode": n_episode,
+                    "Training Steps": self.training_time_steps
+                })
 
             self.global_counter = global_step
             if is_terminated:
