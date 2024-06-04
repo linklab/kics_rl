@@ -117,11 +117,17 @@ class QNetwork(nn.Module):
             nn.Flatten(),
             nn.Linear(3136, 512),
             nn.ReLU(),
-            nn.Linear(512, env.single_action_space.n),
         )
+        self.advantage = nn.Linear(512, env.single_action_space.n)
+        self.value = nn.Linear(512, 1)
 
     def forward(self, x):
-        return self.network(x / 255.0)
+        x = x / 255.0   # 입력 이미지 데이터 픽셀 값을 (0~1) 범위로 정규화
+        x = self.network(x)
+        advantage = self.advantage(x)
+        value = self.value(x)
+        q_values = value + (advantage - advantage.mean(dim=-1, keepdim=True))
+        return q_values
 
 
 def linear_schedule(start_e: float, end_e: float, duration: int, t: int):
@@ -130,14 +136,10 @@ def linear_schedule(start_e: float, end_e: float, duration: int, t: int):
 
 
 if __name__ == "__main__":
-    import stable_baselines3 as sb3
 
-    if sb3.__version__ < "2.0":
-        raise ValueError(
-            """Ongoing migration: run the following command to install the new dependencies:
-poetry run pip install "gymnasium[atari,accept-rom-license]==0.28.1"  "ale-py==0.8.1" 
-"""
-        )
+    """ Ongoing migration: run the following command to install the new dependencies:
+    poetry run pip install "gymnasium[atari,accept-rom-license]==0.28.1"  "ale-py==0.8.1" """
+
     args = tyro.cli(Args)
     assert args.num_envs == 1, "vectorized envs are not supported at the moment"
     run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
@@ -197,7 +199,7 @@ poetry run pip install "gymnasium[atari,accept-rom-license]==0.28.1"  "ale-py==0
             actions = np.array([envs.single_action_space.sample() for _ in range(envs.num_envs)])
         else:
             q_values = q_network(torch.Tensor(obs).to(device))
-            actions = torch.argmax(q_values, dim=1).cpu().numpy()
+            actions = torch.argmax(q_values, dim=-1).cpu().numpy()
 
         # TRY NOT TO MODIFY: execute the game and log data.
         next_obs, rewards, terminations, truncations, infos = envs.step(actions)
@@ -224,15 +226,25 @@ poetry run pip install "gymnasium[atari,accept-rom-license]==0.28.1"  "ale-py==0
         if global_step > args.learning_starts:
             if global_step % args.train_frequency == 0:
                 data = rb.sample(args.batch_size)
+                # state_action_values.shape: torch.Size([32, 1])
+                q_out = q_network(data.observations)
+                q_values = q_out.gather(-1, index=data.actions)
+
                 with torch.no_grad():
-                    target_max, _ = target_network(data.next_observations).max(dim=1)
-                    td_target = data.rewards.flatten() + args.gamma * target_max * (1 - data.dones.flatten())
-                old_val = q_network(data.observations).gather(1, data.actions).squeeze()
-                loss = F.mse_loss(td_target, old_val)
+                    q_prime_out = q_network(data.next_observations)  # online network를 사용하여 다음 상태에서의 행동을 선택
+                    best_action = q_prime_out.argmax(dim=1)
+                    target_q_values = target_network(data.next_observations)
+                    target_q_values[terminations] = 0.0
+
+                    # Calculate the targets
+                    targets = rewards + args.gamma * target_q_values.gather(dim=1, index=best_action.unsqueeze(-1))
+
+                # loss is just scalar torch value
+                loss = F.mse_loss(targets.detach(), q_values)
 
                 if global_step % 100 == 0:
                     writer.add_scalar("losses/td_loss", loss, global_step)
-                    writer.add_scalar("losses/q_values", old_val.mean().item(), global_step)
+                    writer.add_scalar("losses/q_values", q_values.mean().item(), global_step)
                     print("SPS:", int(global_step / (time.time() - start_time)))
                     writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
 
