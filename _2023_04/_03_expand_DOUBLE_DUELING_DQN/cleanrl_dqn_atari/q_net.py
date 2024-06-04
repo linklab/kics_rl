@@ -45,7 +45,8 @@ class QNetwork(nn.Module):
         return q_values
 
     def get_action(self, obs, epsilon):
-        if random.random() < epsilon:
+        a = random.random()
+        if a < epsilon:
             action = np.array([self.env.single_action_space.sample() for _ in range(self.env.num_envs)])
         else:
             q_values = self.forward(obs)

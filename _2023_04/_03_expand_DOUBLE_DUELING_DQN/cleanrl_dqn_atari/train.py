@@ -55,9 +55,9 @@ class Args:
     """the discount factor gamma"""
     tau: float = 1.0
     """the target network update rate"""
-    target_network_frequency: int = 1000
+    target_network_frequency: int = 500
     """the timesteps it takes to update the target network"""
-    batch_size: int = 32
+    batch_size: int = 128
     """the batch size of sample from the reply memory"""
     start_e: float = 1
     """the starting epsilon for exploration"""
@@ -65,7 +65,7 @@ class Args:
     """the ending epsilon for exploration"""
     exploration_fraction: float = 0.10
     """the fraction of `total-timesteps` it takes from start-e to go end-e"""
-    learning_starts: int = 3000
+    learning_starts: int = 102400
     """timestep to start learning"""
     train_frequency: int = 4
     """the frequency of training"""
@@ -217,7 +217,6 @@ class DDDQN:
 
     def train(self):
         data = self.rb.sample(args.batch_size)
-        # state_action_values.shape: torch.Size([32, 1])
         q_out = self.q_network(data.observations)
         q_values = q_out.gather(dim=-1, index=data.actions)
 
@@ -228,8 +227,7 @@ class DDDQN:
             target_q_values[data.dones.squeeze(-1)] = 0.0
 
             # Calculate the targets
-            targets = data.rewards + args.gamma * target_q_values.gather(dim=1,
-                                                                         index=best_action.unsqueeze(-1))
+            targets = data.rewards + args.gamma * target_q_values.gather(dim=1, index=best_action.unsqueeze(-1))
 
         # loss is just scalar torch value
         loss = F.mse_loss(targets.detach(), q_values)
@@ -298,8 +296,8 @@ def make_env(env_id, idx, capture_video, run_name):
         if "FIRE" in env.unwrapped.get_action_meanings():
             env = FireResetEnv(env)
         env = ClipRewardEnv(env)
-        env = gym.wrappers.ResizeObservation(env, (84, 84))
-        env = gym.wrappers.GrayScaleObservation(env)
+        env = gym.wrappers.ResizeObservation(env, (84, 84))  # (210, 160, 3) >> (84, 84, 3)
+        env = gym.wrappers.GrayScaleObservation(env)    # (84, 84, 3) >> (84, 84, 1)
         env = gym.wrappers.FrameStack(env, 4)
         return env
 
@@ -329,9 +327,6 @@ def main():
         env=env, test_env=test_env, run_name=run_name, use_wandb=use_wandb
     )
     dddqn.train_loop()
-
-    env.close()
-    test_env.close()
 
 
 if __name__ == "__main__":
