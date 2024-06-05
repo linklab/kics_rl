@@ -73,7 +73,7 @@ class Args:
     """Episode 통계 출력에 관한 에피소드 간격"""
     train_num_episodes_before_next_test: int = 50
     """validation 사이마다 각 훈련 episode 간격"""
-    episode_reward_avg_solved: int = 400
+    episode_reward_avg_solved: int = 100
     """훈련 조기 종료 validation reward cut"""
     validation_num_episodes: int = 3
     """validation에 수행하는 episode 횟수"""
