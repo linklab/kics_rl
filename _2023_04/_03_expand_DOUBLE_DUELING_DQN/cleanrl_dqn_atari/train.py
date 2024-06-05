@@ -55,7 +55,7 @@ class Args:
     """the discount factor gamma"""
     tau: float = 1.0
     """the target network update rate"""
-    target_network_frequency: int = 500
+    target_network_frequency: int = 1000
     """the timesteps it takes to update the target network"""
     batch_size: int = 128
     """the batch size of sample from the reply memory"""
@@ -65,7 +65,7 @@ class Args:
     """the ending epsilon for exploration"""
     exploration_fraction: float = 0.10
     """the fraction of `total-timesteps` it takes from start-e to go end-e"""
-    learning_starts: int = 102400
+    learning_starts: int = 100000
     """timestep to start learning"""
     train_frequency: int = 4
     """the frequency of training"""
@@ -218,7 +218,7 @@ class DDDQN:
     def train(self):
         data = self.rb.sample(args.batch_size)
         q_out = self.q_network(data.observations)
-        q_values = q_out.gather(dim=-1, index=data.actions)
+        q_values = q_out.gather(dim=1, index=data.actions)
 
         with torch.no_grad():
             q_prime_out = self.q_network(data.next_observations)  # online network를 사용하여 다음 상태에서의 행동을 선택

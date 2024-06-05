@@ -45,10 +45,9 @@ class QNetwork(nn.Module):
         return q_values
 
     def get_action(self, obs, epsilon):
-        a = random.random()
-        if a < epsilon:
+        if random.random() < epsilon:
             action = np.array([self.env.single_action_space.sample() for _ in range(self.env.num_envs)])
         else:
             q_values = self.forward(obs)
-            action = torch.argmax(q_values, dim=-1).cpu().numpy()
+            action = torch.argmax(q_values, dim=1).cpu().numpy()
         return action
