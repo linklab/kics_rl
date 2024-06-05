@@ -57,7 +57,7 @@ class Args:
     """the target network update rate"""
     target_network_frequency: int = 1000
     """the timesteps it takes to update the target network"""
-    batch_size: int = 128
+    batch_size: int = 32
     """the batch size of sample from the reply memory"""
     start_e: float = 1
     """the starting epsilon for exploration"""
@@ -65,17 +65,15 @@ class Args:
     """the ending epsilon for exploration"""
     exploration_fraction: float = 0.10
     """the fraction of `total-timesteps` it takes from start-e to go end-e"""
-    learning_starts: int = 100000
+    learning_starts: int = 50000
     """timestep to start learning"""
     train_frequency: int = 4
     """the frequency of training"""
     print_episode_interval: int = 10
     """Episode 통계 출력에 관한 에피소드 간격"""
-    max_num_episodes: int = 10000
-    """최대 에피소드 길이"""
     train_num_episodes_before_next_test: int = 50
     """validation 사이마다 각 훈련 episode 간격"""
-    episode_reward_avg_solved: int = 300
+    episode_reward_avg_solved: int = 400
     """훈련 조기 종료 validation reward cut"""
     validation_num_episodes: int = 3
     """validation에 수행하는 episode 횟수"""
@@ -119,7 +117,6 @@ class DDDQN:
             handle_timeout_termination=False,
         )
 
-        self.global_counter = 0
         self.time_steps = 0
         self.total_time_steps = 0
         self.training_time_steps = 0
@@ -163,6 +160,13 @@ class DDDQN:
             if global_step > args.learning_starts:
                 if global_step % args.train_frequency == 0:
                     loss = self.train()
+                # update target network
+                if global_step % args.target_network_frequency == 0:
+                    for target_network_param, q_network_param in zip(self.target_network.parameters(),
+                                                                     self.q_network.parameters()):
+                        target_network_param.data.copy_(
+                            args.tau * q_network_param.data + (1.0 - args.tau) * target_network_param.data
+                        )
 
             # TRY NOT TO MODIFY: record rewards for plotting purposes
             if "final_info" in infos:
@@ -207,7 +211,6 @@ class DDDQN:
                     "Training Steps": self.training_time_steps
                 })
 
-            self.global_counter = global_step
             if is_terminated:
                 break
         total_training_time = time.time() - total_train_start_time
@@ -237,13 +240,6 @@ class DDDQN:
         loss.backward()
         self.optimizer.step()
 
-        # update target network
-        if self.global_counter % args.target_network_frequency == 0:
-            for target_network_param, q_network_param in zip(self.target_network.parameters(),
-                                                             self.q_network.parameters()):
-                target_network_param.data.copy_(
-                    args.tau * q_network_param.data + (1.0 - args.tau) * target_network_param.data
-                )
         return loss.item()
 
     def save_model(self, validation_episode_reward_avg):
