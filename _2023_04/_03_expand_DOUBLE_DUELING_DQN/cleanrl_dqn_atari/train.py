@@ -73,8 +73,10 @@ class Args:
     """Episode 통계 출력에 관한 에피소드 간격"""
     train_num_episodes_before_next_test: int = 50
     """validation 사이마다 각 훈련 episode 간격"""
-    episode_reward_avg_solved: int = 100
+    episode_reward_avg_solved: int = 400
     """훈련 조기 종료 validation reward cut"""
+    save_every_n_episodes: int = 1000
+    """모델 세이브 에피소드 주기"""
     validation_num_episodes: int = 3
     """validation에 수행하는 episode 횟수"""
 
@@ -189,6 +191,9 @@ class DDDQN:
                             print("[Validation Episode Reward: {0}] Average: {1:.3f}".format(
                                 validation_episode_reward_lst, validation_episode_reward_avg
                             ))
+
+                            if n_episode % args.save_every_n_episodes == 0:
+                                self.save_model(validation_episode_reward_avg)
 
                             if validation_episode_reward_avg > args.episode_reward_avg_solved:
                                 print("Solved in {0:,} steps ({1:,} training steps)!".format(
@@ -314,9 +319,8 @@ def main():
     assert isinstance(env.single_action_space, gym.spaces.Discrete), "only discrete action space is supported"
 
     test_env = gym.vector.SyncVectorEnv(
-        [make_env(args.env_id, i, args.capture_video, run_name) for i in range(args.num_envs)]
+        [make_env(args.env_id, 0, args.capture_video, run_name)]
     )
-    assert isinstance(env.single_action_space, gym.spaces.Discrete), "only discrete action space is supported"
 
     use_wandb = True
     dddqn = DDDQN(
