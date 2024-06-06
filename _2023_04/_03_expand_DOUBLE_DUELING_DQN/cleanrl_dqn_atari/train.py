@@ -65,7 +65,7 @@ class Args:
     """the ending epsilon for exploration"""
     exploration_fraction: float = 0.10
     """the fraction of `total-timesteps` it takes from start-e to go end-e"""
-    learning_starts: int = 50000
+    learning_starts: int = 800000
     """timestep to start learning"""
     train_frequency: int = 4
     """the frequency of training"""
@@ -271,11 +271,14 @@ class DDDQN:
             while not done:
                 action = self.q_network.get_action(torch.Tensor(observation).to(DEVICE), epsilon=0.0)
 
-                next_observation, reward, terminated, truncated, _ = self.test_env.step(action)
+                next_observation, reward, terminated, truncated, infos = self.test_env.step(action)
 
                 episode_reward += reward.squeeze(-1)
                 observation = next_observation
-                done = terminated or truncated
+                if "final_info" in infos:
+                    for info in infos["final_info"]:
+                        if info and "episode" in info:
+                            done = True
 
             episode_reward_lst[i] = episode_reward
 

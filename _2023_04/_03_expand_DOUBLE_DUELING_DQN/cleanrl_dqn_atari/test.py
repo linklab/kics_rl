@@ -57,11 +57,14 @@ def test(env, q, num_episodes):
             episode_steps += 1
             action = q.get_action(torch.Tensor(observation).to(DEVICE), epsilon=0.0)
 
-            next_observation, reward, terminated, truncated, _ = env.step(action)
+            next_observation, reward, terminated, truncated, infos = env.step(action)
 
             episode_reward += reward.squeeze(-1)
             observation = next_observation
-            done = terminated or truncated
+            if "final_info" in infos:
+                for info in infos["final_info"]:
+                    if info and "episode" in info:
+                        done = True
 
         print("[EPISODE: {0}] EPISODE_STEPS: {1:3d}, EPISODE REWARD: {2:4.1f}".format(
             i, episode_steps, episode_reward
@@ -72,7 +75,7 @@ def main_play(num_episodes, env_name):
     run_name = f"{args.env_id}__{args.exp_name}__{int(time.time())}"
 
     env = gym.vector.SyncVectorEnv(
-        [make_env(args.env_id, i, args.capture_video, run_name) for i in range(args.num_envs)]
+        [make_env(args.env_id, 0, args.capture_video, run_name)]
     )
 
     q = QNetwork(env).to(DEVICE)
