@@ -4,42 +4,12 @@ import time
 
 import gymnasium as gym
 import torch
-from wrappers import (
-    ClipRewardEnv,
-    EpisodicLifeEnv,
-    FireResetEnv,
-    MaxAndSkipEnv,
-    NoopResetEnv,
-)
 
 from q_net import QNetwork, MODEL_DIR
-from train import args
+from train import args, make_env
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-
-def make_env(env_id, idx, capture_video, run_name):
-    def thunk():
-        if capture_video and idx == 0:
-            env = gym.make(env_id, render_mode="human")
-            env = gym.wrappers.RecordVideo(env, f"videos/{run_name}")
-        else:
-            env = gym.make(env_id)
-        env = gym.wrappers.RecordEpisodeStatistics(env)
-
-        env = NoopResetEnv(env, noop_max=30)
-        env = MaxAndSkipEnv(env, skip=4)
-        env = EpisodicLifeEnv(env)
-        if "FIRE" in env.unwrapped.get_action_meanings():
-            env = FireResetEnv(env)
-        env = ClipRewardEnv(env)
-        env = gym.wrappers.ResizeObservation(env, (84, 84))
-        env = gym.wrappers.GrayScaleObservation(env)
-        env = gym.wrappers.FrameStack(env, 4)
-        return env
-
-    return thunk
 
 
 def test(env, q, num_episodes):
@@ -72,10 +42,10 @@ def test(env, q, num_episodes):
 
 
 def main_play(num_episodes, env_name):
-    run_name = f"{args.env_id}__{args.exp_name}__{int(time.time())}"
+    args.test = True
 
     env = gym.vector.SyncVectorEnv(
-        [make_env(args.env_id, 0, args.capture_video, run_name)]
+        [make_env(args.env_id, 0, args.test)]
     )
 
     q = QNetwork(env).to(DEVICE)

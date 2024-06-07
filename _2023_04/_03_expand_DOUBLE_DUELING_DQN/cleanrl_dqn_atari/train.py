@@ -14,7 +14,6 @@ import torch.optim as optim
 import tyro
 import wandb
 from wrappers import (
-    ClipRewardEnv,
     EpisodicLifeEnv,
     FireResetEnv,
     MaxAndSkipEnv,
@@ -37,7 +36,7 @@ class Args:
     """the wandb's project name"""
     wandb_entity: str = None
     """the entity (team) of wandb's project"""
-    capture_video: bool = False
+    test: bool = False
     """whether to capture videos of the agent performances (check out `videos` folder)"""
 
     # Algorithm specific arguments
@@ -65,7 +64,7 @@ class Args:
     """the ending epsilon for exploration"""
     exploration_fraction: float = 0.10
     """the fraction of `total-timesteps` it takes from start-e to go end-e"""
-    learning_starts: int = 800000
+    learning_starts: int = 80000
     """timestep to start learning"""
     train_frequency: int = 4
     """the frequency of training"""
@@ -85,10 +84,9 @@ args = tyro.cli(Args)
 
 
 class DDDQN:
-    def __init__(self, env, test_env, run_name, use_wandb):
+    def __init__(self, env, test_env, use_wandb):
         self.envs = env
         self.test_env = test_env
-        self.run_name = run_name
         self.use_wandb = use_wandb
 
         self.env_name = args.env_id
@@ -285,13 +283,12 @@ class DDDQN:
         return episode_reward_lst, np.average(episode_reward_lst)
 
 
-def make_env(env_id, idx, capture_video, run_name):
+def make_env(env_id, idx, test):
     def thunk():
-        if capture_video and idx == 0:
-            env = gym.make(env_id, render_mode="rgb_array")
-            env = gym.wrappers.RecordVideo(env, f"videos/{run_name}")
+        if test and idx == 0:
+            env = gym.make(env_id, render_mode="human")
         else:
-            env = gym.make(env_id)
+            env = gym.make(env_id, render_mode="rgb_array")
         env = gym.wrappers.RecordEpisodeStatistics(env)
 
         env = NoopResetEnv(env, noop_max=30)
@@ -299,7 +296,6 @@ def make_env(env_id, idx, capture_video, run_name):
         env = EpisodicLifeEnv(env)
         if "FIRE" in env.unwrapped.get_action_meanings():
             env = FireResetEnv(env)
-        env = ClipRewardEnv(env)
         env = gym.wrappers.ResizeObservation(env, (84, 84))  # (210, 160, 3) >> (84, 84, 3)
         env = gym.wrappers.GrayScaleObservation(env)    # (84, 84, 3) >> (84, 84, 1)
         env = gym.wrappers.FrameStack(env, 4)
@@ -314,20 +310,18 @@ def linear_schedule(start_e: float, end_e: float, duration: int, t: int):
 
 
 def main():
-    run_name = f"{args.env_id}__{args.exp_name}__{int(time.time())}"
-
     env = gym.vector.SyncVectorEnv(
-        [make_env(args.env_id, i, args.capture_video, run_name) for i in range(args.num_envs)]
+        [make_env(args.env_id, i, args.test) for i in range(args.num_envs)]
     )
     assert isinstance(env.single_action_space, gym.spaces.Discrete), "only discrete action space is supported"
 
     test_env = gym.vector.SyncVectorEnv(
-        [make_env(args.env_id, 0, args.capture_video, run_name)]
+        [make_env(args.env_id, 0, args.test)]
     )
 
     use_wandb = True
     dddqn = DDDQN(
-        env=env, test_env=test_env, run_name=run_name, use_wandb=use_wandb
+        env=env, test_env=test_env, use_wandb=use_wandb
     )
     dddqn.train_loop()
 
