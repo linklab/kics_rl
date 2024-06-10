@@ -18,6 +18,7 @@ from wrappers import (
     FireResetEnv,
     MaxAndSkipEnv,
     NoopResetEnv,
+    SubRewardFunc
 )
 from q_net import QNetwork, MODEL_DIR
 from buffers import ReplayBuffer
@@ -42,7 +43,7 @@ class Args:
     # Algorithm specific arguments
     env_id: str = "BreakoutNoFrameskip-v4"
     """the id of the environment"""
-    total_timesteps: int = 10000000
+    total_timesteps: int = 30000000
     """total timesteps of the experiments"""
     learning_rate: float = 1e-4
     """the learning rate of the optimizer"""
@@ -143,6 +144,9 @@ class DDDQN:
 
             # TRY NOT TO MODIFY: execute the game and log data.
             next_obs, rewards, terminations, truncations, infos = self.envs.step(actions)
+
+            if terminations:
+                rewards = reward_termination(rewards, infos)
 
             episode_reward += rewards.squeeze(-1)
 
@@ -281,6 +285,20 @@ class DDDQN:
             episode_reward_lst[i] = episode_reward
 
         return episode_reward_lst, np.average(episode_reward_lst)
+
+
+def reward_termination(rewards, info):
+    if info['final_info'][0]['lives'] == 4:
+        rewards -= 10
+    elif info['final_info'][0]['lives'] == 3:
+        rewards -= 20
+    elif info['final_info'][0]['lives'] == 2:
+        rewards -= 30
+    elif info['final_info'][0]['lives'] == 1:
+        rewards -= 40
+    elif info['final_info'][0]['lives'] == 0:
+        rewards -= 50
+    return rewards
 
 
 def make_env(env_id, idx, test):
