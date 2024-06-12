@@ -117,10 +117,10 @@ class DDDQN:
             handle_timeout_termination=False,
         )
 
-        self.highest_score = 0
+        self.highest_score = args.save_start_score
         self.time_steps = 0
         self.total_time_steps = 0
-        self.training_time_steps = args.save_start_score
+        self.training_time_steps = 0
 
     def train_loop(self):
         # episode counter
