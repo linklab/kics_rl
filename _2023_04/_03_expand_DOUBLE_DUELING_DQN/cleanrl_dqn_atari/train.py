@@ -17,8 +17,7 @@ from wrappers import (
     EpisodicLifeEnv,
     FireResetEnv,
     MaxAndSkipEnv,
-    NoopResetEnv,
-    SubRewardFunc
+    NoopResetEnv
 )
 from q_net import QNetwork, MODEL_DIR
 from buffers import ReplayBuffer
@@ -43,7 +42,7 @@ class Args:
     # Algorithm specific arguments
     env_id: str = "BreakoutNoFrameskip-v4"
     """the id of the environment"""
-    total_timesteps: int = 30000000
+    total_timesteps: int = 100000000
     """total timesteps of the experiments"""
     learning_rate: float = 1e-4
     """the learning rate of the optimizer"""
@@ -73,10 +72,10 @@ class Args:
     """Episode 통계 출력에 관한 에피소드 간격"""
     train_num_episodes_before_next_test: int = 50
     """validation 사이마다 각 훈련 episode 간격"""
-    episode_reward_avg_solved: int = 400
+    episode_reward_avg_solved: int = 800
     """훈련 조기 종료 validation reward cut"""
-    save_every_n_episodes: int = 1000
-    """모델 세이브 에피소드 주기"""
+    save_start_score: int = 400
+    """세이브 시작 스코어"""
     validation_num_episodes: int = 3
     """validation에 수행하는 episode 횟수"""
 
@@ -118,9 +117,10 @@ class DDDQN:
             handle_timeout_termination=False,
         )
 
+        self.highest_score = 0
         self.time_steps = 0
         self.total_time_steps = 0
-        self.training_time_steps = 0
+        self.training_time_steps = args.save_start_score
 
     def train_loop(self):
         # episode counter
@@ -194,15 +194,17 @@ class DDDQN:
                                 validation_episode_reward_lst, validation_episode_reward_avg
                             ))
 
-                            if n_episode % args.save_every_n_episodes == 0:
-                                self.save_model(validation_episode_reward_avg)
-
                             if validation_episode_reward_avg > args.episode_reward_avg_solved:
                                 print("Solved in {0:,} steps ({1:,} training steps)!".format(
                                     self.time_steps, self.training_time_steps
                                 ))
                                 self.save_model(validation_episode_reward_avg)
                                 is_terminated = True
+
+                            elif validation_episode_reward_avg > self.highest_score:
+                                self.highest_score = validation_episode_reward_avg
+                                print("Break a record!!! your new score is {}".format(self.highest_score))
+                                self.save_model(validation_episode_reward_avg)
 
                         n_episode += 1
                         episode_reward = 0
